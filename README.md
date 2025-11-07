@@ -24,11 +24,11 @@ measurements, results, and relevant details.
 
 ### a. Uppgifter
 Vi har totalt **25 tasks** som kan dela så här:
-| Person | Code/Implementation Tasks | Measurement/Analysis Tasks | Report Sections                                                                  |
+| Person | Inlämningar | Övriga | Tasks innehåll                                                                  |
 | ------ | ------------------------- | -------------------------- | -------------------------------------------------------------------------------- |
-| **A**  | 1, 4, 7, 13, 17           | 12, 18, 19                 | Matrix multiplication (seq + parallel + speedup), FIFO algorithm, analysis       |
-| **B**  | 2, 3, 9, 14, 20           | 15, 16, 21, 22             | Shared memory + semaphores, synchronization, LRU, system utilization             |
-| **C**  | 5, 6, 8, 10, 11, 23       | 24, 25                     | Thread basics, Dining Professors (deadlock-free), Optimal algorithm, comparisons |
+| **Ebba**  | 7,13,17            | 1, 4, 12, 18, 19                 | Matrix multiplication (seq + parallel + speedup), FIFO algorithm, analysis       |
+| **Thanh**  | 9,14,20            | 2, 3, 15, 16, 21, 22             | Shared memory + semaphores, synchronization, LRU, system utilization             |
+| **Signe**  | 11, 23       | 5, 6, 8, 10, 24, 25                     | Thread basics, Dining Professors (deadlock-free), Optimal algorithm, comparisons |
 
 Innan lämna in uppgifter måste man skriva reporter 
 - Report layout suggestion (2–3 pages total)
