@@ -1,23 +1,45 @@
 # Operating Systems – 2025
 
-## 1. Viktiga datum
+## 1. Viktiga datum och information
+
+### a. Datum
 | Modul               | Titel                                                        | Poäng | Deadline 1  | Deadline 2  | Deadline 3  |
 |---------------------|--------------------------------------------------------------|--------|--------------|--------------|--------------|
 | **Laboration 1**    | Processes, Threads, Synchronization, and Memory Systems      | 1.5 hp | 2024-11-28   | 2025-03-27   | 2025-08-20   |
 | **Laboration 2**    | File Systems                                                 | 1.5 hp | 2025-01-23   | 2025-03-27   | 2025-08-20   |
 
+### b. Information:
+Examination and grading
+Present and discuss your solutions orally with a teacher or lab assistant. Once all tasks are completed:
+• Prepare a compressed file (either in .tar or .zip format), including the source code for the working solutions of both Part
+1 and Part 2 and submit it for evaluation. Take into account that:
+1. Part 1 should contain the solutions of the following tasks Task 7, Task 9, Task 11, Task 13, and Task 14.
+2. Part 2 should contain the solutions of the following tasks Task 17, Task 20, and Task 23.
+• Write and submit a short report (approximately 2-3 pages, in PDF format) detailing your answers to the questions in the
+assignment and describing your implementations. Be sure to include responses to all questions posed in the tasks and any
+measurements, results, and relevant details.
 ---
 
 ## 2. Plan
 
 ### a. Uppgifter
-Vi har totalt **25 tasks** som vi delar upp mellan oss tre:
+Vi har totalt **25 tasks** som kan dela så här:
+| Person | Code/Implementation Tasks | Measurement/Analysis Tasks | Report Sections                                                                  |
+| ------ | ------------------------- | -------------------------- | -------------------------------------------------------------------------------- |
+| **A**  | 1, 4, 7, 13, 17           | 12, 18, 19                 | Matrix multiplication (seq + parallel + speedup), FIFO algorithm, analysis       |
+| **B**  | 2, 3, 9, 14, 20           | 15, 16, 21, 22             | Shared memory + semaphores, synchronization, LRU, system utilization             |
+| **C**  | 5, 6, 8, 10, 11, 23       | 24, 25                     | Thread basics, Dining Professors (deadlock-free), Optimal algorithm, comparisons |
 
-| # | Ebba | Signe | Thanh |
-|---|------|--------|--------|
-| **Tasks** | 1, 4, 7, 10, 13, 16, 19, 22 | 2, 5, 8, 11, 14, 17, 20, 23 | 3, 6, 9, 12, 15, 18, 21, 24 |
+Innan lämna in uppgifter måste man skriva reporter 
+- Report layout suggestion (2–3 pages total)
 
-**Task 25:** Den som blir klar först med sina uppgifter kan ta den.
+| Section                                   | Author  | Contents                                                                                          |
+| ----------------------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| **1. Introduction**                       | All     | Short summary of what was implemented, team structure                                             |
+| **2. Part 1 (Threads & Synchronization)** | A, B, C | Each summarizes their relevant tasks: A (Task 7, 13), B (Task 9, 14), C (Task 11)                 |
+| **3. Part 2 (Paging algorithms)**         | A, B, C | Each writes the part for their algorithm (FIFO/LRU/Optimal) and include measurements (Tables 1–4) |
+| **4. Performance & Analysis**             | A, B, C | Each adds results from 12, 15–16, 18–25 as assigned                                               |
+| **5. Conclusions**                        | All     | What was learned about concurrency, parallelism, and memory management                            |
 
 ---
 
@@ -28,6 +50,6 @@ Vi har totalt **25 tasks** som vi delar upp mellan oss tre:
 - När vi har visat resultaten för **Elias** och fått godkänt, lägger vi ihop de godkända delarna i en gemensam fil och fortsätter arbetet med dem resten (om det finns)
 ---
 
-### c. Sammanfattning
+### c. Veckoplan
 - **Första laborationen:** Fredag den **14 november kl. 08–10** i **G332**.  
   Fram till dess försöker vi göra så mycket som möjligt med våra egna delar.
