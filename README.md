@@ -30,17 +30,8 @@ Vi har totalt **25 tasks** som kan dela så här:
 | **Thanh**  | 9,14,20            | 2, 3, 15, 16, 21, 22             | Shared memory + semaphores, synchronization, LRU, system utilization             |
 | **Signe**  | 11, 23       | 5, 6, 8, 10, 24, 25                     | Thread basics, Dining Professors (deadlock-free), Optimal algorithm, comparisons |
 
-Innan lämna in uppgifter måste man skriva reporter 
-- Report layout suggestion (2–3 pages total)
-
-| Section                                   | Author  | Contents                                                                                          |
-| ----------------------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| **1. Introduction**                       | All     | Short summary of what was implemented, team structure                                             |
-| **2. Part 1 (Threads & Synchronization)** | A, B, C | Each summarizes their relevant tasks: A (Task 7, 13), B (Task 9, 14), C (Task 11)                 |
-| **3. Part 2 (Paging algorithms)**         | A, B, C | Each writes the part for their algorithm (FIFO/LRU/Optimal) and include measurements (Tables 1–4) |
-| **4. Performance & Analysis**             | A, B, C | Each adds results from 12, 15–16, 18–25 as assigned                                               |
-| **5. Conclusions**                        | All     | What was learned about concurrency, parallelism, and memory management                            |
-
+Innan lämna in uppgifter måste man skriva reporter:
+- Each summarizes their relevant tasks: A (Task 7, 13, 17), B (Task 9, 14, 20), C (Task 11, 23) 
 ---
 
 ### b. Hur vi jobbar
