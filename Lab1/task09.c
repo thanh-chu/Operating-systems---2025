@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-// Shared Variables
-
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 double bankAccountBalance = 0;
