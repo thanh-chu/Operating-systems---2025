@@ -34,8 +34,6 @@ int main(int argc, char *argv[])
 
     pages = addressCount;
 
-    //printf("Incoming \t Frame 1 \t Frame 2 \t Frame 3");
-
     int temp[frames];
 
     for(page = 0; page < pages; page++)
@@ -64,15 +62,15 @@ int main(int argc, char *argv[])
         {
             temp[(pageFaults - 1) % frames] = pageAddress[page];
         }
-        printf("\n");
-        printf("%d\t\t\t",pageAddress[page]);
-        for(frame = 0; frame < frames; frame++)
-        {
-            if(temp[frame] != -1)
-                printf(" %d\t\t\t", temp[frame]);
-            else
-                printf(" - \t\t\t");
-        }
+        // printf("\n");
+        // printf("%d\t\t\t",pageAddress[page]);
+        // for(frame = 0; frame < frames; frame++)
+        // {
+        //     if(temp[frame] != -1)
+        //         printf(" %d\t\t\t", temp[frame]);
+        //     else
+        //         printf(" - \t\t\t");
+        // }
     }
 
     printf("\nTotal Page Faults:\t%d\n", pageFaults);

@@ -13,7 +13,7 @@ void* child(void* params) {
 	unsigned int childID = args->id;
 	unsigned int numThreads = args->numThreads;
 	args->squaredId = childID * childID;
-	printf("Greetings from child #%u of %u\n", childID, numThreads, args->squaredId);
+	printf("Greetings from child #%u of %u (squaredId=%u)\n", childID, numThreads, args->squaredId);
 	return NULL;
 }
 
