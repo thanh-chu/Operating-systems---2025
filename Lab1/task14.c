@@ -78,7 +78,7 @@ But wheLater, I increased SIZE to 2024, and the behavior changed significantly:
 
 When SIZE = 1024, both task13 (with bonly matrix multiplication are parallelized) 
 and task14 (with both matrix initialization and matrix multiplication are parallelized) give similar speedups. 
-Sometimes task13 is more quicly, sometimes is task14.
+Much times task13 is more quicly, sometimes is task14.
 This happens because, at this matrix size, the cost of initializing matrix a and b is relatively small 
 compared to the cost of the matrix multiplication itself. Even though task14 parallelizes 
 the initialization of both matrices, the time saved is small, and the overhead of creating additional 

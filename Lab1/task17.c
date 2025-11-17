@@ -76,4 +76,3 @@ int main(int argc, char *argv[])
     printf("\nTotal Page Faults:\t%d\n", pageFaults);
     return 0;
 }
-
