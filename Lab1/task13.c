@@ -6,7 +6,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <pthread.h>
 
 #define SIZE 1024
@@ -51,11 +50,6 @@ void* parrallel(void* params){
 static void
 matmul_seq()
 {
-    // int i;
-
-    // for (i = 0; i < SIZE; i++) {
-    //     parrallel(i);
-    // }
     pthread_t* children;
     struct threadArgs* args; // argument buffer
 
@@ -92,24 +86,11 @@ print_matrix(void)
     }
 }
 
-//static double get_time_ms(void){
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1.0e6;
-}
 
 int
 main(int argc, char **argv)
 {
     init_matrix();
-    //double t0 = get_time_ms();
     matmul_seq();
     //print_matrix();
-
-    //double t1 = get_time_ms();
-
-    //printf("threaded matmul took %.3f ms (%.3f s)\n", t1 - t0, (t1 - t0) / 1000.0);
-
-    // Kontroll (alla element ska bli SIZE, t.ex. c[0][0])
-    //printf("c[0][0] = %.2f (expected %.2f)\n", c[0][0], (double)SIZE);
 }
