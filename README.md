@@ -30,19 +30,19 @@ make test1
 #### a. Uppgifter
 Vi har totalt **5 tasks** med flerar funktionerna som kan dela så här:
 ```
-👤 Person 1 - FAT Manager
+👤 Thanh - FAT Manager
 find_free_block()
 get_chain()
 free_chain()
 load_fat(), save_fat()
 format()
 
-👤 Person 2 - Directory Manager
+👤 Ebba - Directory Manager
 load_dir(), save_dir()
 mkdir(), ls(), cd(), pwd()
 resolve_path()
 
-👤 Person 3 - File Operations
+👤 Signe - File Operations
 create()
 cat()
 append()
@@ -56,10 +56,10 @@ rm(), mv(), cp(), chmod()
 - Implementera och testa din del lokalt, gärna med eget main. När det funkar kan du lägga upp på GitHub och säga till så att alla vet.
 - Vill man kan man ha en egen mapp, men då behöver man kanske ändra i de andra filerna också. Annars kan man ha allt lokalt och på GitHub, och det brukar funka okej också.
 - Man kan absolut ändra arbetssätt om något inte fungerar som förväntat.
-- Vi kan ha ett gruppmöte via Zoom en gång i veckan för att diskutera och förklara för de andra vad man jobbar med. Jag tycker det är viktigt eftersom Elias kommer att fråga alla om delar man inte arbetat med vid redovisningen.
+- Vi kan ha ett gruppmöte via Discord en gång i veckan för att diskutera och förklara för de andra vad man jobbar med. Jag tycker det är viktigt eftersom Elias kommer att fråga alla om delar man inte arbetat med vid redovisningen.
 ---
 #### c. Veckoplan
-- Gruppmöte vecka 48:
+- Gruppmöte vecka 48: Fredag den 28 november. Tiden har inte bestämt. 
 - Gruppmöte vecka 49: färdigt med sin del för att vara redo för redovisning vecka 50
 ---
 ## 1. LAB 1:
