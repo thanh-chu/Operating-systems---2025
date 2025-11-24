@@ -5,7 +5,7 @@
 |---------------------|--------------------------------------------------------------|--------|--------------|--------------|--------------|
 | **Laboration 1**    | Processes, Threads, Synchronization, and Memory Systems      | 1.5 hp | 2024-11-24   | 2025-03-27   | 2025-08-20   |
 | **Laboration 2**    | File Systems                                                 | 1.5 hp | 2025-01-23   | 2025-03-27   | 2025-08-20   |
-
+---
 ## 2. LAB 2:
 ### 1.1. Information:
 - All your code should be in the files fs.h and fs.cpp, i.e., those are the only files copied to the test directory where all tests are executed.
@@ -25,6 +25,7 @@ To your help, we provide a file with test commands that your program should hand
 make test1
 ./test1
 ```
+---
 ### 1.2. Plan
 #### a. Uppgifter
 Vi har totalt **5 tasks** med flerar funktionerna som kan dela så här:
@@ -48,6 +49,7 @@ append()
 rm(), mv(), cp(), chmod()
 ```
 - Written report: You should write a short report (approximately 2-3 pages) describing your implementations, with a general description of your solution, the data structures used, motivation of design decisions, etc. The format of the report must be pdf.
+---
 #### b. Hur vi jobbar
 - Välj vilken del du vill jobba med.
 - Ladda ner filerna från GitHub. Jag ändrar bara fs.h och fs.cpp (lägger till funktioner, tar inget bort) så att det fortfarande funkar med testfilerna.
@@ -55,11 +57,11 @@ rm(), mv(), cp(), chmod()
 - Vill man kan man ha en egen mapp, men då behöver man kanske ändra i de andra filerna också. Annars kan man ha allt lokalt och på GitHub, och det brukar funka okej också.
 - Man kan absolut ändra arbetssätt om något inte fungerar som förväntat.
 - Vi kan ha ett gruppmöte via Zoom en gång i veckan för att diskutera och förklara för de andra vad man jobbar med. Jag tycker det är viktigt eftersom Elias kommer att fråga alla om delar man inte arbetat med vid redovisningen.
+---
 #### c. Veckoplan
 - Gruppmöte vecka 48:
 - Gruppmöte vecka 49: färdigt med sin del för att vara redo för redovisning vecka 50
-
-
+---
 ## 1. LAB 1:
 ### 1.1. Information:
 Examination and grading
