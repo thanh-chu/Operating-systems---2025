@@ -1,5 +1,6 @@
 #include "fs.h"
 #include <iostream>
+#include <stdexcept>
 #include <vector>
 #include <cstring>
 
@@ -22,45 +23,119 @@ FS::~FS()
     save_fat();
 }
 
-
-
 /* ============================================================
    ====================== PERSON 1 =============================
    =================== FAT + DISK MANAGER ======================
    ============================================================ */
 
-int FS::find_free_block() {
-    cout << "[P1] find_free_block stub\n";
+//check all FAT and return the first free block from the first block, help-funtion for get_chain
+int 
+FS::find_free_block() { 
+    for(int16_t i = 2; i < static_cast<int16_t>(BLOCK_SIZE/2); i++){ //formatting the disk, i.e., initializing the FAT and marking all blocks as free (except block 0 (the root directory) and block 1 (the FAT))
+        if(fat[i] == FAT_FREE){
+            return i;
+        }
+    }
     return -1;
 }
 
-vector<uint16_t> FS::get_chain(uint16_t start_blk) {
-    cout << "[P1] get_chain stub\n";
-    return { start_blk };
+//allocate a new block data from FAT => use in create file/directory, append, cp, mv file
+int 
+FS::alloc_block() {
+    int blk = find_free_block();
+    if(blk < 0){
+        return -1;
+    }
+    fat[blk] = FAT_EOF;
+    return blk ;
 }
 
-void FS::free_chain(uint16_t start_blk) {
-    cout << "[P1] free_chain stub\n";
+//return a vector with all blocks of file/directory (input is the first block)
+vector<uint16_t> 
+FS::get_chain(uint16_t first_blk) {
+    vector<uint16_t> chain;
+    while(true){
+        if(first_blk >= BLOCK_SIZE/2){
+            throw runtime_error("Corrupted FAT: index out of range");
+        }
+        if(fat[first_blk] == FAT_FREE){
+            throw runtime_error("Corrupted FAT: encounted free block inside file chain");
+        }
+        if(first_blk == ROOT_BLOCK || first_blk == FAT_BLOCK){
+            throw runtime_error("Corrupted FAT: file chain points to reserved block");
+        }
+        chain.push_back(first_blk);
+        int16_t next = fat[first_blk];
+        if(next == FAT_EOF){
+            break;
+        }
+        first_blk = static_cast<uint16_t>(next);
+    }
+    return chain;
 }
 
-void FS::load_fat() {
-    cout << "[P1] load_fat stub\n";
+//free all blocks of file/directory, start with first_blk
+void 
+FS::free_chain(uint16_t first_blk) {
+    while(true){
+        if(first_blk == ROOT_BLOCK || first_blk == FAT_BLOCK){
+            throw runtime_error("Error: try to free reserved block!");
+        }
+        int16_t next = fat[first_blk];
+        fat[first_blk] = FAT_FREE;
+
+        if(next == FAT_EOF){
+            break;
+        }
+        if(next < 0 || next >= BLOCK_SIZE/2){
+            throw runtime_error("Corrupted FAT: invalid FAT pointer!");
+        }
+        first_blk = static_cast<uint16_t>(next);
+    } 
+    
 }
 
-void FS::save_fat() {
-    cout << "[P1] save_fat stub\n";
+//load filesystem allocated table from disk to RAM (mount filesystem)
+void 
+FS::load_fat() {
+    uint8_t buffer[BLOCK_SIZE];
+    if(disk.read(FAT_BLOCK, buffer) == -1){
+        throw runtime_error("Error: Cannot read FAT block");
+    }
+
+    memcpy(fat, buffer, sizeof(fat));
+    cout << "FAT loaded into RAM\n";
 }
 
-
+//save FAT from RAM to disk to be sure that every changes on FAT will be saved (unmount filesystem)
+void 
+FS::save_fat() {
+    uint8_t buffer[BLOCK_SIZE];
+    memcpy(buffer, fat, sizeof(fat));
+    if(disk.write(FAT_BLOCK, buffer) == -1){
+        throw runtime_error("Error: Can not write FAT block");
+    }
+    cout << "FAT saved to disk\n";
+}
+ 
 // formats the disk, i.e., creates an empty file system
 int
 FS::format()
 {
-    std::cout << "FS::format()\n";
+    for(int16_t i = 0; i < BLOCK_SIZE/2; i++){
+        fat[i] = FAT_FREE;
+    }
+    fat[ROOT_BLOCK] = FAT_EOF;
+    fat[FAT_BLOCK] = FAT_EOF;
+
+    save_fat();
+
+    uint8_t empty_block[BLOCK_SIZE] = {0};
+    disk.write(ROOT_BLOCK, empty_block);
+
+    cout << "Format completed\n";
     return 0;
 }
-
-
 
 /* ============================================================
    ====================== PERSON 2 =============================
