@@ -5,8 +5,8 @@
 #ifndef __FS_H__
 #define __FS_H__
 
-#define ROOT_BLOCK 0
-#define FAT_BLOCK 1
+#define ROOT_BLOCK 0 //root directory
+#define FAT_BLOCK 1 //block save FAT on disk
 #define FAT_FREE 0
 #define FAT_EOF -1
 
@@ -15,6 +15,10 @@
 #define READ 0x04
 #define WRITE 0x02
 #define EXECUTE 0x01
+#define DIR_ENTRIES (BLOCK_SIZE / sizeof(dir_entry))
+
+
+using namespace std;
 
 struct dir_entry {
     char file_name[56]; // name of the file / sub-directory
@@ -30,8 +34,8 @@ private:
     // size of a FAT entry is 2 bytes
     int16_t fat[BLOCK_SIZE/2];
 
-    uint16_t cwd_block = ROOT_BLOCK;     // --- added for person 2 ---
-    std::string cwd_path = "/";          // --- added for person 2 ---
+    uint16_t cwd_block = ROOT_BLOCK;     // --- added for person 2 --- nuvarande block
+    std::string cwd_path = "/";          // --- added for person 2 --- nuvarande path
 
 public:
     FS();
@@ -41,14 +45,16 @@ public:
        =============== PERSON 1: FAT MANAGER ================
        ===================================================== */
 
-    int find_free_block();                     // --- added ---
-    std::vector<uint16_t> get_chain(uint16_t start_blk);   // --- added ---
-    void free_chain(uint16_t start_blk);      // --- added ---
-    
-    void load_fat();                           // --- added ---
-    void save_fat();                           // --- added ---
+    int find_free_block();                          // --- added ---
+    int alloc_block();                              // --- added ---
+    vector<uint16_t> get_chain(uint16_t first_blk); // --- added ---
+    void free_chain(uint16_t first_blk);            // --- added ---
+    void load_fat();                                // --- added ---
+    void save_fat();                                // --- added ---
     // formats the disk, i.e., creates an empty file system
     int format();
+    vector<dir_entry> read_dir();
+    void write_dir(const vector<dir_entry>& entries);
 
     /* =====================================================
        =========== PERSON 2: DIRECTORY MANAGEMENT ===========
