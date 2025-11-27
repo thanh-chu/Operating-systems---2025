@@ -53,8 +53,7 @@ public:
     void save_fat();                                // --- added ---
     // formats the disk, i.e., creates an empty file system
     int format();
-    vector<dir_entry> read_dir();
-    void write_dir(const vector<dir_entry>& entries);
+   
 
     /* =====================================================
        =========== PERSON 2: DIRECTORY MANAGEMENT ===========
