@@ -53,8 +53,7 @@ public:
     void save_fat();                                // --- added ---
     // formats the disk, i.e., creates an empty file system
     int format();
-    vector<dir_entry> read_dir();
-    void write_dir(const vector<dir_entry>& entries);
+   
 
     /* =====================================================
        =========== PERSON 2: DIRECTORY MANAGEMENT ===========
@@ -101,3 +100,173 @@ public:
 };
 
 #endif // __FS_H__
+
+/*
+Just för test task1:
+vector<dir_entry> FS::read_dir()
+{
+    uint8_t buffer[BLOCK_SIZE];
+    vector<dir_entry> entries;
+
+    if (disk.read(ROOT_BLOCK, buffer) < 0)
+        throw runtime_error("Cannot read root directory");
+
+    dir_entry* p = (dir_entry*) buffer;
+
+    for (int i = 0; i < DIR_ENTRIES; i++) {
+        if (p[i].file_name[0] != '\0') {
+            entries.push_back(p[i]);
+        }
+    }
+
+    return entries;
+}
+
+void FS::write_dir(const vector<dir_entry>& entries)
+{
+    uint8_t buffer[BLOCK_SIZE] = {0};
+    dir_entry* p = (dir_entry*) buffer;
+
+    for (int i = 0; i < entries.size(); i++) {
+        p[i] = entries[i];
+    }
+
+    disk.write(ROOT_BLOCK, buffer);
+}
+
+int FS::create(string filename)
+{
+    if (filename.size() > 55) {
+    cout << "Filename too long\n";
+    return -1;
+    }
+    vector<dir_entry> dir = read_dir();
+    if (dir.size() >= DIR_ENTRIES) {
+    cout << "Root directory full\n";
+    return -1;
+    }
+    // Check duplicate name
+    for (auto& e : dir) {
+        if (filename == e.file_name) {
+            cout << "File already exists\n";
+            return -1;
+        }
+    }
+
+    // Create directory entry
+    dir_entry entry = {};
+    strncpy(entry.file_name, filename.c_str(), sizeof(entry.file_name));
+    entry.size = 0;
+    entry.first_blk = FAT_EOF;
+
+    cout << "Enter file contents (empty line stops):\n";
+
+    string line;
+    vector<uint8_t> content;
+
+    //cin.ignore();
+    while (true) {
+        getline(cin, line);
+        if (line.empty()) break;
+        for (char c : line) content.push_back(c);
+        content.push_back('\n');
+    }
+
+    entry.size = content.size();
+
+    // Allocate blocks
+    if (content.size() > 0) {
+        int16_t first = alloc_block();
+        if (first < 0) {
+            cout << "Disk full\n";
+            return -1;
+        }
+        entry.first_blk = first;
+
+        int16_t curr = first;
+
+        size_t pos = 0;
+
+        while (pos < content.size()) {
+            uint8_t buffer[BLOCK_SIZE] = {0};
+
+            size_t bytes = min((size_t)BLOCK_SIZE, content.size() - pos);
+            memcpy(buffer, &content[pos], bytes);
+
+            disk.write(curr, buffer);
+
+            pos += bytes;
+
+            if (pos < content.size()) {
+                int16_t next = alloc_block();
+                fat[curr] = next;
+                curr = next;
+            }
+        }
+    }
+
+    // Save FAT
+    save_fat();
+
+    // Add to directory
+    dir.push_back(entry);
+    write_dir(dir);
+
+    cout << "File created.\n";
+    return 0;
+}
+
+int FS::ls()
+{
+    vector<dir_entry> dir = read_dir();
+
+    cout << "name   size\n";
+    for (auto& e : dir) {
+        cout << e.file_name << "   " << e.size << "\n";
+    }
+
+    return 0;
+}
+
+int FS::cat(string filename)
+{
+    vector<dir_entry> dir = read_dir();
+
+    dir_entry file = {};
+    bool found = false;
+
+    for (auto& e : dir) {
+        if (filename == e.file_name) {
+            file = e;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        cout << "File not found\n";
+        return -1;
+    }
+
+    int remaining = file.size;
+    int16_t blk = file.first_blk;
+
+    while (remaining > 0) {
+        uint8_t buffer[BLOCK_SIZE];
+
+        disk.read(blk, buffer);
+
+        int to_print = min(remaining, BLOCK_SIZE);
+
+        cout << string((char*)buffer, to_print);
+
+        remaining -= to_print;
+
+        if (remaining > 0)
+            blk = fat[blk];
+    }
+
+    return 0;
+}
+
+*/
