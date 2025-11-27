@@ -1,0 +1,26 @@
+What is happening when we keep the number of pages constant and increase the page size? Explain why!
+När sidstorleken blir större får varje sida plats med mer data.
+Då behövs ofta färre sidbyten (page faults), eftersom mer av programmet finns i minnet på samma gång.
+
+What is happening when we keep the page size constant and increase the number of pages? Explain why!
+Fler sidor betyder -> större minne.
+Då kan programmet ha fler av sina sidor inne samtidigt, så man behöver inte hämta från disk lika ofta.
+Resultat blir att antal sidfel minskar när man ger programmet fler sidor.
+
+If we double the page size and halve the number of pages, the number of page faults sometimes decrease and some-
+times increase. What can be the reason for that?
+Större sidor gör att färre olika sidor används, vilket kan minska page faults.
+Färre frames betyder mindre plats i minnet, vilket kan öka page faults.
+Vilket av dessa två olika händelser som händer beror på hur adresserna i programmet ligger.
+Därför ökar sidfelen ibland och minskar ibland.
+
+Focus now on the results in Table 2 (matmul). At some point decreases the number page faults very drastically.
+What memory size does that correspond to? Why does the number of page faults decrease so drastically at that point?
+Det händer när minnet blir stort nog för att hela den del av matriserna som används samtidigt får plats i minnet.
+Då behöver programmet nästan inte byta sidor alls, och därför minskar sidfelen kraftigt.
+
+At some point the number of page faults does not decrease anymore when we increase the number of pages. When
+and why do you think that happens?
+Det händer när hela programmet och alla sidor det behöver får plats i minnet. Då finns det inte längre några nya sidor att ladda in,
+och antalet page faults slutar minska.
+
