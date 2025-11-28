@@ -1,4 +1,6 @@
 #include <iostream>
+#include <cstdint>
+
 #include "disk.h"
 
 Disk::Disk()
