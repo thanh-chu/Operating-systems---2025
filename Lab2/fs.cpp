@@ -11,7 +11,14 @@ using namespace std;
 FS::FS()
 {
     // Person 1: load FAT + root directory
-    load_fat();
+    try {
+        load_fat();
+    } catch (const std::runtime_error& e) {
+        std::cout << e.what() << std::endl;
+        std::cout << "Formatting...\n";
+        format();
+    }
+
     cwd_block = ROOT_BLOCK;
     cwd_path = "/";
 
@@ -57,13 +64,13 @@ FS::get_chain(uint16_t first_blk) {
     vector<uint16_t> chain;
     while(true){
         if(first_blk >= BLOCK_SIZE/2){
-            throw runtime_error("Corrupted FAT: index out of range\n");
+            throw runtime_error("Corrupted FAT: index out of range");
         }
         if(fat[first_blk] == FAT_FREE){
-            throw runtime_error("Corrupted FAT: encounted free block inside file chain\n");
+            throw runtime_error("Corrupted FAT: encounted free block inside file chain");
         }
         if(first_blk == ROOT_BLOCK || first_blk == FAT_BLOCK){
-            throw runtime_error("Corrupted FAT: file chain points to reserved block\n");
+            throw runtime_error("Corrupted FAT: file chain points to reserved block");
         }
         chain.push_back(first_blk);
         int16_t next = fat[first_blk];
@@ -80,7 +87,7 @@ void
 FS::free_chain(uint16_t first_blk) {
     while(true){
         if(first_blk == ROOT_BLOCK || first_blk == FAT_BLOCK){
-            throw runtime_error("Error: try to free reserved block!\n");
+            throw runtime_error("Error: try to free reserved block!");
         }
         int16_t next = fat[first_blk];
         fat[first_blk] = FAT_FREE;
@@ -89,11 +96,10 @@ FS::free_chain(uint16_t first_blk) {
             break;
         }
         if(next < 0 || next >= BLOCK_SIZE/2){
-            throw runtime_error("Corrupted FAT: invalid FAT pointer!\n");
+            throw runtime_error("Corrupted FAT: invalid FAT pointer!");
         }
         first_blk = static_cast<uint16_t>(next);
-    } 
-    
+    }    
 }
 
 //load filesystem allocated table from disk to RAM (mount filesystem)
@@ -101,7 +107,7 @@ void
 FS::load_fat() {
     uint8_t buffer[BLOCK_SIZE];
     if(disk.read(FAT_BLOCK, buffer) == -1){
-        throw runtime_error("Error: Cannot read FAT block\n");
+        throw runtime_error("Error: Cannot read FAT block");
     }
 
     memcpy(fat, buffer, sizeof(fat));
@@ -114,7 +120,7 @@ FS::save_fat() {
     uint8_t buffer[BLOCK_SIZE];
     memcpy(buffer, fat, sizeof(fat));
     if(disk.write(FAT_BLOCK, buffer) == -1){
-        throw runtime_error("Error: Can not write FAT block\n");
+        throw runtime_error("Error: Can not write FAT block");
     }
     cout << "FAT saved to disk\n";
 }
@@ -123,17 +129,19 @@ FS::save_fat() {
 int
 FS::format()
 {
-    for(int16_t i = 0; i < BLOCK_SIZE/2; i++){
-        fat[i] = FAT_FREE;
-    }
-    fat[ROOT_BLOCK] = FAT_EOF;
-    fat[FAT_BLOCK] = FAT_EOF;
-
-    save_fat();
-
     uint8_t empty_block[BLOCK_SIZE] = {0};
+    for(int i = 0; i < BLOCK_SIZE/2; i++){
+        if(i == ROOT_BLOCK || i == FAT_BLOCK){
+            fat[i] = FAT_EOF;
+        } else {
+            fat[i] = FAT_FREE;
+        }
+    }
+    save_fat();
     disk.write(ROOT_BLOCK, empty_block);
-
+    for(int i = 2; i < BLOCK_SIZE/2; i++){
+        disk.write(i, empty_block);
+    }
     cout << "Format completed\n";
     return 0;
 }
