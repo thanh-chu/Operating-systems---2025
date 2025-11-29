@@ -37,8 +37,8 @@ FS::~FS()
    ============================================================ */
 
 //check all FAT and return the first free block from the first block, help-funtion for get_chain
-int 
-FS::find_free_block() { 
+int
+FS::find_free_block() {
     for(int i = 2; i < (BLOCK_SIZE/2); i++){ //formatting the disk, i.e., initializing the FAT and marking all blocks as free (except block 0 (the root directory) and block 1 (the FAT))
         if(fat[i] == FAT_FREE){
             return i;
@@ -48,7 +48,7 @@ FS::find_free_block() {
 }
 
 //allocate a new block data from FAT => use in create file/directory, append, cp, mv file
-int 
+int
 FS::alloc_block() {
     int blk = find_free_block();
     if (blk == -1){
@@ -59,7 +59,7 @@ FS::alloc_block() {
 }
 
 //return a vector with all blocks of file/directory (input is the first block)
-vector<uint16_t> 
+vector<uint16_t>
 FS::get_chain(uint16_t first_blk) {
     vector<uint16_t> chain;
     while(true){
@@ -83,7 +83,7 @@ FS::get_chain(uint16_t first_blk) {
 }
 
 //free all blocks of file/directory, start with first_blk
-void 
+void
 FS::free_chain(uint16_t first_blk) {
     while(true){
         if(first_blk == ROOT_BLOCK || first_blk == FAT_BLOCK){
@@ -99,11 +99,11 @@ FS::free_chain(uint16_t first_blk) {
             throw runtime_error("Corrupted FAT: invalid FAT pointer!");
         }
         first_blk = static_cast<uint16_t>(next);
-    }    
+    }
 }
 
 //load filesystem allocated table from disk to RAM (mount filesystem)
-void 
+void
 FS::load_fat() {
     uint8_t buffer[BLOCK_SIZE];
     if(disk.read(FAT_BLOCK, buffer) == -1){
@@ -115,7 +115,7 @@ FS::load_fat() {
 }
 
 //save FAT from RAM to disk to be sure that every changes on FAT will be saved (unmount filesystem)
-void 
+void
 FS::save_fat() {
     uint8_t buffer[BLOCK_SIZE];
     memcpy(buffer, fat, sizeof(fat));
@@ -124,7 +124,7 @@ FS::save_fat() {
     }
     cout << "FAT saved to disk\n";
 }
- 
+
 // formats the disk, i.e., creates an empty file system
 int
 FS::format()
@@ -151,15 +151,53 @@ FS::format()
    ================= DIRECTORY MANAGEMENT ======================
    ============================================================ */
 
-bool FS::load_dir(uint16_t blk, vector<dir_entry>& list) {
-    cout << "[P2] load_dir stub\n";
-    list.clear();
-    return true;
+// bool FS::load_dir(uint16_t blk, vector<dir_entry>& list) {
+//     cout << "[P2] load_dir stub\n";
+//     list.clear();
+//     return true;
+// }
+int FS::load_dir(uint16_t block_no, vector<dir_entry>& entries) {
+    uint8_t buffer[BLOCK_SIZE];
+
+    int res = disk.read(block_no, buffer);
+    if (res != 0) {
+        return res;
+    }
+
+    dir_entry* p = reinterpret_cast<dir_entry*>(buffer);
+
+    for (int i = 0; i < DIR_ENTRIES; i++) {
+        if (p[i].file_name[0] != '\0') {
+            entries.push_back(p[i]);
+        }
+    }
+
+    return 0;
 }
 
-bool FS::save_dir(uint16_t blk, const vector<dir_entry>& list) {
-    cout << "[P2] save_dir stub\n";
-    return true;
+// bool FS::save_dir(uint16_t blk, const vector<dir_entry>& list) {
+//     cout << "[P2] save_dir stub\n";
+//     return true;
+// }
+
+int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
+    uint8_t buffer[BLOCK_SIZE] = { 0 };
+
+    int entrie_size = entries.size();
+    if (entrie_size > DIR_ENTRIES) {
+        entrie_size = DIR_ENTRIES;
+    }
+
+    dir_entry* p = reinterpret_cast<dir_entry*>(buffer);
+    for (int i = 0; i < entries.size(); i++) {
+        p[i] = entries[i];
+    }
+
+    int res = disk.write(block_no, buffer);
+    if (res != 0) {
+        return res;
+    }
+    return 0;
 }
 
 // mkdir <dirpath> creates a new sub-directory with the name <dirpath>
@@ -172,12 +210,28 @@ FS::mkdir(std::string dirpath)
 }
 
 // ls lists the content in the currect directory (files and sub-directories)
-int
-FS::ls()
-{
-    std::cout << "FS::ls()\n";
+int FS::ls() {
+    uint16_t block_no = 0;
+
+    vector<dir_entry> entries;
+    //ta ut hur många entires det fins
+
+    int status_block = load_dir(block_no, entries); //leta upp
+    if (status_block != 0) {
+        cout << "ls: could not load directory block" << endl;
+        return -1;
+    }
+
+    cout << "name     size" << endl;
+    for (int i = 0; i < entries.size() ; i++) {
+        if (entries[i].file_name[0] != '\0') {
+            cout << entries[i].file_name << "\t" << entries[i].size << endl;
+        }
+        cout << "\n";
+    }
     return 0;
 }
+
 
 // cd <dirpath> changes the current (working) directory to the directory named <dirpath>
 int
@@ -209,12 +263,12 @@ bool FS::resolve_path(string path, uint16_t& blk, dir_entry& entry) {
 
 // create <filepath> creates a new file on the disk, the data content is
 // written on the following rows (ended with an empty row)
-int
-FS::create(std::string filepath)
-{
-    std::cout << "FS::create(" << filepath << ")\n";
-    return 0;
-}
+// int
+// FS::create(std::string filepath)
+// {
+//     std::cout << "FS::create(" << filepath << ")\n";
+//     return 0;
+// }
 
 // cat <filepath> reads the content of a file and prints it on the screen
 int
@@ -265,6 +319,93 @@ int
 FS::chmod(std::string accessrights, std::string filepath)
 {
     std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
+    return 0;
+}
+
+
+
+int FS::create(string filename)
+{
+    if (filename.size() > 55) {
+    cout << "Filename too long\n";
+    return -1;
+    }
+    uint16_t block_no = 0;
+    vector<dir_entry> dir;
+
+    load_dir(block_no, dir);
+    if (dir.size() >= DIR_ENTRIES) {
+    cout << "Root directory full\n";
+    return -1;
+    }
+    // Check duplicate name
+    for (auto& e : dir) {
+        if (filename == e.file_name) {
+            cout << "File already exists\n";
+            return -1;
+        }
+    }
+
+    // Create directory entry
+    dir_entry entry = {};
+    strncpy(entry.file_name, filename.c_str(), sizeof(entry.file_name));
+    entry.size = 0;
+    entry.first_blk = FAT_EOF;
+
+    cout << "Enter file contents (empty line stops):\n";
+
+    string line;
+    vector<uint8_t> content;
+
+    //cin.ignore();
+    while (true) {
+        getline(cin, line);
+        if (line.empty()) break;
+        for (char c : line) content.push_back(c);
+        content.push_back('\n');
+    }
+
+    entry.size = content.size();
+
+    // Allocate blocks
+    if (content.size() > 0) {
+        int16_t first = alloc_block();
+        if (first < 0) {
+            cout << "Disk full\n";
+            return -1;
+        }
+        entry.first_blk = first;
+
+        int16_t curr = first;
+
+        size_t pos = 0;
+
+        while (pos < content.size()) {
+            uint8_t buffer[BLOCK_SIZE] = {0};
+
+            size_t bytes = min((size_t)BLOCK_SIZE, content.size() - pos);
+            memcpy(buffer, &content[pos], bytes);
+
+            disk.write(curr, buffer);
+
+            pos += bytes;
+
+            if (pos < content.size()) {
+                int16_t next = alloc_block();
+                fat[curr] = next;
+                curr = next;
+            }
+        }
+    }
+
+    // Save FAT
+    save_fat();
+
+    // Add to directory
+    dir.push_back(entry);
+    save_dir(block_no, dir);
+
+    cout << "File created.\n";
     return 0;
 }
 

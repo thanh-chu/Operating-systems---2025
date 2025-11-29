@@ -54,14 +54,18 @@ public:
     void save_fat();                                // --- added ---
     // formats the disk, i.e., creates an empty file system
     int format();
-   
+
 
     /* =====================================================
        =========== PERSON 2: DIRECTORY MANAGEMENT ===========
        ===================================================== */
 
-    bool load_dir(uint16_t blk, std::vector<dir_entry>& list);    // --- added ---
-    bool save_dir(uint16_t blk, const std::vector<dir_entry>& list); // --- added ---
+    // bool load_dir(uint16_t blk, std::vector<dir_entry>& list);    // --- added ---
+    int load_dir(uint16_t block_no, vector<dir_entry>& entries);
+    // bool write_dir(uint16_t blk, const std::vector<dir_entry>& list); // --- added ---
+    int save_dir(uint16_t block_no, vector<dir_entry>& entries);
+
+
     // mkdir <dirpath> creates a new sub-directory with the name <dirpath>
     // in the current directory
     int mkdir(std::string dirpath);
