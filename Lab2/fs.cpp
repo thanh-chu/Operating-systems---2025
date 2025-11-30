@@ -202,30 +202,86 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
 
 // mkdir <dirpath> creates a new sub-directory with the name <dirpath>
 // in the current directory
-int
-FS::mkdir(std::string dirpath)
-{
-    std::cout << "FS::mkdir(" << dirpath << ")\n";
+
+int FS::mkdir(string dirpath) {
+    if (dirpath.empty() || dirpath.size() > 55) {
+        cout << "name not valid" << endl;
+        return -1;
+    }
+
+    vector<dir_entry> entries; // array att fylla
+    int res = load_dir(cwd_block, entries);
+    if (res < 0) {
+        std::cout << "could not load current directory\n";
+        return -1;
+    }
+
+    for (size_t i = 0; i < entries.size(); i++) {
+        if (dirpath == entries[i].file_name) {
+            cout << "Directory already exists" << endl;
+            return -1;
+        }
+    }
+
+    if (entries.size() >= DIR_ENTRIES) {
+        cout << "Directory full" << endl;
+        return -1;
+    }
+
+    //datorn utrymme
+    int new_block = alloc_block();
+    if (!new_block) {
+        cout << "disk is full" << endl;
+        return -1;
+    }
+
+    dir_entry map{};
+    strncpy(map.file_name, dirpath.c_str(), sizeof(map.file_name) - 1);
+    map.size = 0;
+    map.first_blk = new_block; // index in the FAT for the first block of the file
+    map.type = TYPE_DIR; // directory (1) or file (0)
+    map.access_rights = READ | WRITE | EXECUTE;  // read (0x04), write (0x02), execute (0x01)
+
+    // entries.push_back(map);
+    entries.insert(entries.begin(), map);
+    res = save_dir(cwd_block, entries);
+    if (res < 0) {
+        cout << "could not save current directory" << endl;
+        return -1;
+    }
+
+    save_fat();
     return 0;
 }
 
+// int
+// FS::mkdir(std::string dirpath)
+// {
+//     std::cout << "FS::mkdir(" << dirpath << ")\n";
+//     return 0;
+// }
+
 // ls lists the content in the currect directory (files and sub-directories)
 int FS::ls() {
-    uint16_t block_no = 0;
-
     vector<dir_entry> entries;
     //ta ut hur många entires det fins
 
-    int status_block = load_dir(block_no, entries); //leta upp
+    int status_block = load_dir(cwd_block, entries); //leta upp
     if (status_block != 0) {
         cout << "ls: could not load directory block" << endl;
         return -1;
     }
 
-    cout << "name     size" << endl;
+    cout << "name" << "\t" << "type"  << "\t" <<"size" << endl;
     for (int i = 0; i < entries.size() ; i++) {
+        string type = "";
+        if(entries[i].type == TYPE_DIR){
+            type = "dir";
+        }else{
+            type = "file";
+        }
         if (entries[i].file_name[0] != '\0') {
-            cout << entries[i].file_name << "\t" << entries[i].size << endl;
+            cout << entries[i].file_name << "\t" << type << "\t" << entries[i].size;
         }
         cout << "\n";
     }
@@ -234,11 +290,41 @@ int FS::ls() {
 
 
 // cd <dirpath> changes the current (working) directory to the directory named <dirpath>
-int
-FS::cd(std::string dirpath)
-{
-    std::cout << "FS::cd(" << dirpath << ")\n";
-    return 0;
+// int
+// FS::cd(std::string dirpath)
+// {
+//     std::cout << "FS::cd(" << dirpath << ")\n";
+//     return 0;
+// }
+
+int FS::cd(string name) {
+    if (name == "..") {
+        cwd_block = ROOT_BLOCK;
+        cwd_path = "/";
+        return 0;
+    }
+
+    vector<dir_entry> entries;
+    int res = load_dir(cwd_block, entries);
+    if (res < 0) {
+        std::cout << "could not load current directory\n";
+        return -1;
+    }
+
+    for (int i = 0; i < entries.size(); i++) {
+        if (name == entries[i].file_name && entries[i].type == TYPE_DIR) {
+            cwd_block = entries[i].first_blk;
+            if (cwd_path == "/") {
+                cwd_path = "/" + name;
+            }
+            else {
+                cwd_path += "/" + name;
+            }
+            return 0;
+        }
+    }
+    cout << "directory not found" << endl;
+    return -1;
 }
 
 // pwd prints the full path, i.e., from the root directory, to the current
@@ -246,7 +332,7 @@ FS::cd(std::string dirpath)
 int
 FS::pwd()
 {
-    std::cout << "FS::pwd()\n";
+    std::cout << cwd_path << endl;
     return 0;
 }
 
@@ -330,10 +416,9 @@ int FS::create(string filename)
     cout << "Filename too long\n";
     return -1;
     }
-    uint16_t block_no = 0;
     vector<dir_entry> dir;
 
-    load_dir(block_no, dir);
+    load_dir(cwd_block, dir);
     if (dir.size() >= DIR_ENTRIES) {
     cout << "Root directory full\n";
     return -1;
@@ -403,7 +488,7 @@ int FS::create(string filename)
 
     // Add to directory
     dir.push_back(entry);
-    save_dir(block_no, dir);
+    save_dir(cwd_block, dir);
 
     cout << "File created.\n";
     return 0;
