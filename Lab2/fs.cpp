@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 
 using namespace std;
 
@@ -505,18 +506,20 @@ FS::chmod(std::string accessrights, std::string filepath)
 
 
 /* För test 1 och test 3
+//Thanh + Ebba
 int FS::create(string filename)
 {
     if (filename.size() > 55) {
-    cout << "Filename too long\n";
-    return -1;
+        cout << "Filename too long\n";
+        return -1;
     }
     vector<dir_entry> dir;
 
     load_dir(cwd_block, dir);
+
     if (dir.size() >= DIR_ENTRIES) {
-    cout << "Root directory full\n";
-    return -1;
+        cout << "Root directory full\n";
+        return -1;
     }
     // Check duplicate name
     for (auto& e : dir) {
@@ -539,7 +542,6 @@ int FS::create(string filename)
     string line;
     vector<uint8_t> content;
 
-    //cin.ignore();
     while (true) {
         getline(cin, line);
         if (line.empty()) break;
@@ -550,7 +552,7 @@ int FS::create(string filename)
     entry.size = content.size();
 
     // Allocate blocks
-    if (content.size() > 0) {
+    if (!content.empty()) {
         int16_t first = alloc_block();
         if (first < 0) {
             cout << "Disk full\n";
@@ -576,6 +578,8 @@ int FS::create(string filename)
                 int16_t next = alloc_block();
                 fat[curr] = next;
                 curr = next;
+            } else {
+                fat[curr] = FAT_EOF;  
             }
         }
     }
@@ -592,7 +596,7 @@ int FS::create(string filename)
 }
 
 //Thanh
-int
+int 
 FS::cat(std::string filepath) {
     vector<dir_entry> dir;
     if (load_dir(cwd_block, dir) != 0) {
@@ -609,8 +613,8 @@ FS::cat(std::string filepath) {
                 return -1;
             } else {
                 file = e; found = true;
-                break;
-            }
+                break; 
+            } 
         }
     }
     if (!found) { cout << "File not found\n"; return -1; }
@@ -634,5 +638,4 @@ FS::cat(std::string filepath) {
     }
     return 0;
 }
-
 */
