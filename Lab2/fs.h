@@ -76,7 +76,7 @@ public:
     // pwd prints the full path, i.e., from the root directory, to the current
     // directory, including the current directory name
     int pwd();
-    bool resolve_path(std::string path, uint16_t& blk, dir_entry& entry); // --- added ---
+    bool resolve_path(std::string& path, dir_entry& entry, string& new_name, bool tureOrFalse = false); // --- added ---
 
 
     /* =====================================================

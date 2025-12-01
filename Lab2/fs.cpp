@@ -126,7 +126,7 @@ FS::save_fat() {
     if(disk.write(FAT_BLOCK, buffer) == -1){
         throw runtime_error("Error: Can not write FAT block");
     }
-    cout << "FAT saved to disk\n";
+    // cout << "FAT saved to disk\n";
 }
 
 // formats the disk, i.e., creates an empty file system
@@ -223,15 +223,23 @@ int FS::mkdir(string dirpath) {
         return -1;
     }
 
+    dir_entry parent_entry{};
+    string new_name;
+    if (!resolve_path(dirpath, parent_entry, new_name)) {
+        cout << "no such directory (parent) for: " << dirpath << endl;
+        return -1;
+    }
+    uint16_t parent_block = parent_entry.first_blk;
+
     vector<dir_entry> entries; // array att fylla
-    int res = load_dir(cwd_block, entries);
+    int res = load_dir(parent_block, entries);
     if (res < 0) {
         std::cout << "could not load current directory\n";
         return -1;
     }
 
     for (size_t i = 0; i < entries.size(); i++) {
-        if (dirpath == entries[i].file_name) {
+        if (new_name == entries[i].file_name) {
             cout << "Directory already exists" << endl;
             return -1;
         }
@@ -242,7 +250,6 @@ int FS::mkdir(string dirpath) {
         return -1;
     }
 
-    //datorn utrymme
     int new_block = alloc_block();
     if (!new_block) {
         cout << "disk is full" << endl;
@@ -264,15 +271,14 @@ int FS::mkdir(string dirpath) {
     */
 
     dir_entry map{};
-    strncpy(map.file_name, dirpath.c_str(), sizeof(map.file_name) - 1);
+    strncpy(map.file_name, new_name.c_str(), sizeof(map.file_name) - 1);
     map.size = 0;
     map.first_blk = new_block; // index in the FAT for the first block of the file
     map.type = TYPE_DIR; // directory (1) or file (0)
     map.access_rights = READ | WRITE | EXECUTE;  // read (0x04), write (0x02), execute (0x01)
-
-    // entries.push_back(map);
     entries.insert(entries.begin(), map);
-    res = save_dir(cwd_block, entries);
+
+    res = save_dir(parent_block, entries);
     if (res < 0) {
         cout << "could not save current directory" << endl;
         return -1;
@@ -308,8 +314,14 @@ int FS::ls() {
         }else{
             type = "file";
         }
+        string size;
+        if(entries[i].size == 0){
+            size = "-";
+        }else{
+            size = to_string(entries[i].size);
+        }
         if (entries[i].file_name[0] != '\0') {
-            cout << entries[i].file_name << "\t" << type << "\t" << entries[i].size;
+            cout << entries[i].file_name << "\t" << type << "\t" << size;
         }
         cout << "\n";
     }
@@ -326,33 +338,28 @@ int FS::ls() {
 // }
 
 int FS::cd(string name) {
-    if (name == "..") {
-        cwd_block = ROOT_BLOCK;
-        cwd_path = "/";
+    dir_entry parent;
+    string last_name;
+    string path = name;
+
+    if (!resolve_path(path, parent, last_name, true)) {
+        cout << "directory not found" << endl;
+        return -1;
+    }
+    if (parent.first_blk == 0){
+        cwd_block = parent.first_blk;
+        cwd_path = path;
         return 0;
     }
 
-    vector<dir_entry> entries;
-    int res = load_dir(cwd_block, entries);
-    if (res < 0) {
-        std::cout << "could not load current directory\n";
+    if (parent.type == TYPE_FILE){
+        cout << "can not do cd on a file" << endl;
         return -1;
     }
+    cwd_block = parent.first_blk;
+    cwd_path = path;
 
-    for (int i = 0; i < entries.size(); i++) {
-        if (name == entries[i].file_name && entries[i].type == TYPE_DIR) {
-            cwd_block = entries[i].first_blk;
-            if (cwd_path == "/") {
-                cwd_path = "/" + name;
-            }
-            else {
-                cwd_path += "/" + name;
-            }
-            return 0;
-        }
-    }
-    cout << "directory not found" << endl;
-    return -1;
+    return 0;
 }
 
 // pwd prints the full path, i.e., from the root directory, to the current
@@ -364,9 +371,80 @@ FS::pwd()
     return 0;
 }
 
-bool FS::resolve_path(string path, uint16_t& blk, dir_entry& entry) {
-    cout << "[P2] resolve_path stub: " << path << endl;
-    return false;
+bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool throw_not_found) {
+    string path = path_in;
+    if(path.substr(0, 1) != "/"){
+        if(cwd_path.substr(cwd_path.length()-1, 1) != "/"){
+            path = cwd_path + "/" + path;
+        }
+        else{
+            path = cwd_path + path;
+        }
+    }
+
+    string current;
+    vector<std::string> parts;
+    for (int i = 0; i < path.size(); ++i) {
+        char path_list = path[i];
+
+        if (path_list == '/') {
+            if (!current.empty()) {
+                if(current == ".."){
+                    parts.pop_back();
+                }
+                parts.push_back(current);
+                current.clear();
+            }
+        }
+        else
+        {
+            current.push_back(path_list);
+        }
+    }
+    if (!current.empty()) {
+        if(current == ".."){
+            parts.pop_back();
+        }else{
+            parts.push_back(current);
+        }
+    }
+
+    path_in = "";
+    for(auto i: parts){
+        path_in += "/" + i;
+    }
+    if(parts.size() != 0){
+        new_name = parts.back();
+    }else{
+        path_in = "/";
+    }
+
+    uint16_t current_block = ROOT_BLOCK;
+    entry = dir_entry{};
+    entry.first_blk = current_block;
+    for(auto name: parts){
+        if (!parts.empty()){
+            vector<dir_entry> entires;
+            if (load_dir(current_block, entires) < 0) {
+                return false;
+            }
+
+            bool found_map = false;
+
+            for(int i = 0; i < entires.size(); i++){
+                if(entires[i].type == TYPE_DIR && entires[i].file_name == name){
+                    entry = entires[i];
+                    current_block = entires[i].first_blk;
+                    found_map = true;
+                    continue;
+                }
+            }
+            if (throw_not_found == true && found_map == false){
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 
