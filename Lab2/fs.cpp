@@ -217,13 +217,6 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
 // mkdir <dirpath> creates a new sub-directory with the name <dirpath>
 // in the current directory
 
-/*
-Thanh:
-Här hanterar mkdir(dirpath) samma sätt med att mkdir(dir_name)
-=> behöver divide path till olika delar.
-Man behöver kolla om dirpaths member är en fil eller duplicera
-Jag lägger ett exempel i sista av filen om du vill kolla
-*/
 int FS::mkdir(string dirpath) {
     if (dirpath.empty() || dirpath.size() > 55) {
         cout << "name not valid" << endl;
@@ -446,7 +439,6 @@ FS::chmod(std::string accessrights, std::string filepath)
 
 
 /* För test 1 och test 3
-//Thanh + Ebba
 int FS::create(string filename)
 {
     if (filename.size() > 55) {
@@ -545,7 +537,15 @@ FS::cat(std::string filepath) {
     dir_entry file = {};
     bool found = false;
     for (auto& e : dir) {
-        if (filepath == e.file_name) { file = e; found = true; break; }
+        if (filepath == e.file_name) {
+            if(e.type == TYPE_DIR){
+                cerr << "Try to use cat with directory";
+                return -1;
+            } else {
+                file = e; found = true;
+                break; 
+            } 
+        }
     }
     if (!found) { cout << "File not found\n"; return -1; }
 
@@ -569,110 +569,4 @@ FS::cat(std::string filepath) {
     return 0;
 }
 
-*/
-
-
-
-/*
-Thanh: mkdir
-int FS::mkdir(string dirpath) {
-    if (dirpath.empty() || dirpath == "/") {
-        cout << "Invalid directory path\n";
-        return -1;
-    }
-
-    // 1. Split path into parts
-    vector<string> parts;
-    string tmp = "";
-    for (char c : dirpath) {
-        if (c == '/') {
-            if (!tmp.empty()) parts.push_back(tmp);
-            tmp = "";
-        } else {
-            tmp += c;
-        }
-    }
-    if (!tmp.empty()) parts.push_back(tmp);
-
-    if (parts.empty()) {
-        cout << "Invalid path\n";
-        return -1;
-    }
-
-    uint16_t current_block = cwd_block;
-    vector<dir_entry> entries;
-
-    // 2. Process each element in the path
-    for (int i = 0; i < parts.size(); i++) {
-        string name = parts[i];
-        bool is_last = (i == parts.size() - 1);
-
-        // Load current directory
-        entries.clear();
-        if (load_dir(current_block, entries) != 0) {
-            cout << "Could not load directory\n";
-            return -1;
-        }
-
-        // Check if directory already exists
-        int existing_index = -1;
-        for (int j = 0; j < entries.size(); j++) {
-            if (entries[j].file_name == name) {
-                if (entries[j].type == TYPE_FILE) {
-                    cout << "Cannot create directory: " << name << " is a file\n";
-                    return -1;
-            }
-                if (entries[j].type == TYPE_DIR) {
-                    existing_index = j;
-                    break;
-            }
-            }
-        }
-
-        if (existing_index >= 0) {
-            // Directory exists → move into it
-            current_block = entries[existing_index].first_blk;
-            continue;
-        }
-
-        // 3. Create the new directory (for missing parts)
-        int new_block;
-        try { new_block = alloc_block(); }
-        catch (...) {
-            cout << "Disk full\n";
-            return -1;
-        }
-
-        // Initialize empty directory block
-        uint8_t empty_block[BLOCK_SIZE] = {0};
-        if (disk.write(new_block, empty_block) != 0) {
-            cout << "Could not initialize new directory block\n";
-            fat[new_block] = FAT_FREE;
-            return -1;
-        }
-
-        // Build directory entry
-        dir_entry newdir{};
-        strncpy(newdir.file_name, name.c_str(), sizeof(newdir.file_name)-1);
-        newdir.type = TYPE_DIR;
-        newdir.size = 0;
-        newdir.first_blk = new_block;
-        newdir.access_rights = READ | WRITE | EXECUTE;
-
-        // Add entry to current directory
-        entries.push_back(newdir);
-
-        if (save_dir(current_block, entries) != 0) {
-            cout << "Could not save directory\n";
-            return -1;
-        }
-
-        save_fat();
-
-        // Move into the newly created directory
-        current_block = new_block;
-    }
-
-    return 0;
-}
 */
