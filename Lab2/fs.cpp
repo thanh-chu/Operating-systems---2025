@@ -441,6 +441,7 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
    ====================== PERSON 3 =============================
    ===================== FILE OPERATIONS ======================
    ============================================================ */
+/*
 
 //create <filepath> creates a new file on the disk, the data content is
 //written on the following rows (ended with an empty row)
@@ -458,6 +459,8 @@ FS::cat(std::string filepath)
     std::cout << "FS::cat(" << filepath << ")\n";
     return 0;
 }
+    
+*/
 
 // cp <sourcepath> <destpath> makes an exact copy of the file
 // <sourcepath> to a new file <destpath>
@@ -505,17 +508,34 @@ FS::chmod(std::string accessrights, std::string filepath)
 
 
 
-/* För test 1 och test 3
+/* För test 1 och test 3 */
 //Thanh + Ebba
-int FS::create(string filename)
+int FS::create(string filepath)
 {
+    dir_entry parent_entry{};
+    string filename;
+
+    if (!resolve_path(filepath, parent_entry, filename)) {
+        cout << "Invalid path: cannot resolve parent directory\n";
+        return -1;
+    }
+
+    // if (parent_entry.type != TYPE_DIR) {
+    //     cout << "Parent is not a directory\n";
+    //     return -1;
+    // }
+    
     if (filename.size() > 55) {
         cout << "Filename too long\n";
         return -1;
     }
+    uint16_t parent_block = parent_entry.first_blk;
     vector<dir_entry> dir;
 
-    load_dir(cwd_block, dir);
+    if(load_dir(parent_block, dir) != 0){
+        cout << "Could not load directory";
+        return -1;
+    }
 
     if (dir.size() >= DIR_ENTRIES) {
         cout << "Root directory full\n";
@@ -598,6 +618,14 @@ int FS::create(string filename)
 //Thanh
 int 
 FS::cat(std::string filepath) {
+    dir_entry parent_entry{};
+    string file_name;
+
+    if (!resolve_path(filepath, parent_entry, file_name)) {
+        cout << "File not found from path\n";
+        return -1;
+    }
+
     vector<dir_entry> dir;
     if (load_dir(cwd_block, dir) != 0) {
         cout << "could not load current directory\n";
@@ -607,7 +635,7 @@ FS::cat(std::string filepath) {
     dir_entry file = {};
     bool found = false;
     for (auto& e : dir) {
-        if (filepath == e.file_name) {
+        if (file_name == e.file_name) {
             if(e.type == TYPE_DIR){
                 cerr << "Try to use cat with directory";
                 return -1;
@@ -638,4 +666,3 @@ FS::cat(std::string filepath) {
     }
     return 0;
 }
-*/
