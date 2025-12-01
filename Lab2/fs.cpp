@@ -196,7 +196,7 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
     Thanh: Du har kollat uppe att om entrie_size > DIR_ENTRIES => entrie_size = DIR_ENTRIES
     man inte ändrat det neren
     => använda entrie_size i for-loop istället för entries.size()
-    
+
     dir_entry* p = reinterpret_cast<dir_entry*>(buffer);
     for (int i = 0; i < entrie_size; i++) {
         p[i] = entries[i];
@@ -250,17 +250,6 @@ int FS::mkdir(string dirpath) {
         return -1;
     }
 
-    int new_block = alloc_block();
-    if (!new_block) {
-        cout << "disk is full" << endl;
-        return -1;
-    }
-
-    /*
-    Thanh: alloc_block() ska returnerar blk om det finns och kasta
-    ett fel medđelandet om disken är ful så bäst att man lägga
-    new_block=alloc_block() i ett try-catch
-
     int new_block;
     try {
         new_block = alloc_block();
@@ -268,7 +257,6 @@ int FS::mkdir(string dirpath) {
         cout << "disk is full\n";
         return -1;
     }
-    */
 
     dir_entry map{};
     strncpy(map.file_name, new_name.c_str(), sizeof(map.file_name) - 1);
@@ -604,7 +592,7 @@ int FS::create(string filename)
 }
 
 //Thanh
-int 
+int
 FS::cat(std::string filepath) {
     vector<dir_entry> dir;
     if (load_dir(cwd_block, dir) != 0) {
@@ -621,8 +609,8 @@ FS::cat(std::string filepath) {
                 return -1;
             } else {
                 file = e; found = true;
-                break; 
-            } 
+                break;
+            }
         }
     }
     if (!found) { cout << "File not found\n"; return -1; }
