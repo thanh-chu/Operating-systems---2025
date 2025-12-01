@@ -14,8 +14,8 @@ FS::FS()
     try {
         load_fat();
     } catch (const std::runtime_error& e) {
-        std::cout << e.what() << std::endl;
-        std::cout << "Formatting...\n";
+        cerr << e.what() << endl;
+        cout << "Formatting...\n";
         format();
     }
 
@@ -28,7 +28,11 @@ FS::FS()
 FS::~FS()
 {
     // Person 1: ensure FAT is saved before exit
-    save_fat();
+    try {
+        save_fat();
+    } catch (const std::runtime_error& e){
+        cerr << e.what() << endl;
+    }
 }
 
 /* ============================================================
@@ -188,6 +192,16 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
         entrie_size = DIR_ENTRIES;
     }
 
+    /*
+    Thanh: Du har kollat uppe att om entrie_size > DIR_ENTRIES => entrie_size = DIR_ENTRIES
+    man inte ändrat det neren
+    => använda entrie_size i for-loop istället för entries.size()
+    
+    dir_entry* p = reinterpret_cast<dir_entry*>(buffer);
+    for (int i = 0; i < entrie_size; i++) {
+        p[i] = entries[i];
+    }
+    */
     dir_entry* p = reinterpret_cast<dir_entry*>(buffer);
     for (int i = 0; i < entries.size(); i++) {
         p[i] = entries[i];
@@ -203,6 +217,13 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
 // mkdir <dirpath> creates a new sub-directory with the name <dirpath>
 // in the current directory
 
+/*
+Thanh:
+Här hanterar mkdir(dirpath) samma sätt med att mkdir(dir_name)
+=> behöver divide path till olika delar.
+Man behöver kolla om dirpaths member är en fil eller duplicera
+Jag lägger ett exempel i sista av filen om du vill kolla
+*/
 int FS::mkdir(string dirpath) {
     if (dirpath.empty() || dirpath.size() > 55) {
         cout << "name not valid" << endl;
@@ -234,6 +255,20 @@ int FS::mkdir(string dirpath) {
         cout << "disk is full" << endl;
         return -1;
     }
+
+    /*
+    Thanh: alloc_block() ska returnerar blk om det finns och kasta
+    ett fel medđelandet om disken är ful så bäst att man lägga
+    new_block=alloc_block() i ett try-catch
+
+    int new_block;
+    try {
+        new_block = alloc_block();
+    } catch (const std::runtime_error& e) {
+        cout << "disk is full\n";
+        return -1;
+    }
+    */
 
     dir_entry map{};
     strncpy(map.file_name, dirpath.c_str(), sizeof(map.file_name) - 1);
@@ -347,14 +382,14 @@ bool FS::resolve_path(string path, uint16_t& blk, dir_entry& entry) {
    ===================== FILE OPERATIONS ======================
    ============================================================ */
 
-// create <filepath> creates a new file on the disk, the data content is
-// written on the following rows (ended with an empty row)
-// int
-// FS::create(std::string filepath)
-// {
-//     std::cout << "FS::create(" << filepath << ")\n";
-//     return 0;
-// }
+//create <filepath> creates a new file on the disk, the data content is
+//written on the following rows (ended with an empty row)
+int
+FS::create(std::string filepath)
+{
+    std::cout << "FS::create(" << filepath << ")\n";
+    return 0;
+}
 
 // cat <filepath> reads the content of a file and prints it on the screen
 int
@@ -410,6 +445,8 @@ FS::chmod(std::string accessrights, std::string filepath)
 
 
 
+/* För test 1 och test 3
+//Thanh + Ebba
 int FS::create(string filename)
 {
     if (filename.size() > 55) {
@@ -434,6 +471,8 @@ int FS::create(string filename)
     // Create directory entry
     dir_entry entry = {};
     strncpy(entry.file_name, filename.c_str(), sizeof(entry.file_name));
+    entry.type = TYPE_FILE;
+    entry.access_rights = READ|WRITE;
     entry.size = 0;
     entry.first_blk = FAT_EOF;
 
@@ -494,173 +533,146 @@ int FS::create(string filename)
     return 0;
 }
 
-
-/*
-Just för test task1:
-vector<dir_entry> FS::read_dir()
-{
-    uint8_t buffer[BLOCK_SIZE];
-    vector<dir_entry> entries;
-
-    if (disk.read(ROOT_BLOCK, buffer) < 0)
-        throw runtime_error("Cannot read root directory");
-
-    dir_entry* p = (dir_entry*) buffer;
-
-    for (int i = 0; i < DIR_ENTRIES; i++) {
-        if (p[i].file_name[0] != '\0') {
-            entries.push_back(p[i]);
-        }
-    }
-
-    return entries;
-}
-
-void FS::write_dir(const vector<dir_entry>& entries)
-{
-    uint8_t buffer[BLOCK_SIZE] = {0};
-    dir_entry* p = (dir_entry*) buffer;
-
-    for (int i = 0; i < entries.size(); i++) {
-        p[i] = entries[i];
-    }
-
-    disk.write(ROOT_BLOCK, buffer);
-}
-
-int FS::create(string filename)
-{
-    if (filename.size() > 55) {
-    cout << "Filename too long\n";
-    return -1;
-    }
-    vector<dir_entry> dir = read_dir();
-    if (dir.size() >= DIR_ENTRIES) {
-    cout << "Root directory full\n";
-    return -1;
-    }
-    // Check duplicate name
-    for (auto& e : dir) {
-        if (filename == e.file_name) {
-            cout << "File already exists\n";
-            return -1;
-        }
-    }
-
-    // Create directory entry
-    dir_entry entry = {};
-    strncpy(entry.file_name, filename.c_str(), sizeof(entry.file_name));
-    entry.size = 0;
-    entry.first_blk = FAT_EOF;
-
-    cout << "Enter file contents (empty line stops):\n";
-
-    string line;
-    vector<uint8_t> content;
-
-    //cin.ignore();
-    while (true) {
-        getline(cin, line);
-        if (line.empty()) break;
-        for (char c : line) content.push_back(c);
-        content.push_back('\n');
-    }
-
-    entry.size = content.size();
-
-    // Allocate blocks
-    if (content.size() > 0) {
-        int16_t first = alloc_block();
-        if (first < 0) {
-            cout << "Disk full\n";
-            return -1;
-        }
-        entry.first_blk = first;
-
-        int16_t curr = first;
-
-        size_t pos = 0;
-
-        while (pos < content.size()) {
-            uint8_t buffer[BLOCK_SIZE] = {0};
-
-            size_t bytes = min((size_t)BLOCK_SIZE, content.size() - pos);
-            memcpy(buffer, &content[pos], bytes);
-
-            disk.write(curr, buffer);
-
-            pos += bytes;
-
-            if (pos < content.size()) {
-                int16_t next = alloc_block();
-                fat[curr] = next;
-                curr = next;
-            }
-        }
-    }
-
-    // Save FAT
-    save_fat();
-
-    // Add to directory
-    dir.push_back(entry);
-    write_dir(dir);
-
-    cout << "File created.\n";
-    return 0;
-}
-
-int FS::ls()
-{
-    vector<dir_entry> dir = read_dir();
-
-    cout << "name   size\n";
-    for (auto& e : dir) {
-        cout << e.file_name << "   " << e.size << "\n";
-    }
-
-    return 0;
-}
-
-int FS::cat(string filename)
-{
-    vector<dir_entry> dir = read_dir();
-
-    dir_entry file = {};
-    bool found = false;
-
-    for (auto& e : dir) {
-        if (filename == e.file_name) {
-            file = e;
-            found = true;
-            break;
-        }
-    }
-
-    if (!found) {
-        cout << "File not found\n";
+//Thanh
+int 
+FS::cat(std::string filepath) {
+    vector<dir_entry> dir;
+    if (load_dir(cwd_block, dir) != 0) {
+        cout << "could not load current directory\n";
         return -1;
     }
 
+    dir_entry file = {};
+    bool found = false;
+    for (auto& e : dir) {
+        if (filepath == e.file_name) { file = e; found = true; break; }
+    }
+    if (!found) { cout << "File not found\n"; return -1; }
+
     int remaining = file.size;
     int16_t blk = file.first_blk;
+    if (blk == FAT_EOF && remaining > 0) {
+        cout << "Corrupted file (no blocks)\n";
+        return -1;
+    }
 
     while (remaining > 0) {
-        uint8_t buffer[BLOCK_SIZE];
-
-        disk.read(blk, buffer);
-
+        uint8_t buffer[BLOCK_SIZE] = {0};
+        if (disk.read(blk, buffer) != 0) {
+            cout << "disk read error\n"; return -1;
+        }
         int to_print = min(remaining, BLOCK_SIZE);
-
         cout << string((char*)buffer, to_print);
-
         remaining -= to_print;
+        if (remaining > 0) blk = fat[blk];
+    }
+    return 0;
+}
 
-        if (remaining > 0)
-            blk = fat[blk];
+*/
+
+
+
+/*
+Thanh: mkdir
+int FS::mkdir(string dirpath) {
+    if (dirpath.empty() || dirpath == "/") {
+        cout << "Invalid directory path\n";
+        return -1;
+    }
+
+    // 1. Split path into parts
+    vector<string> parts;
+    string tmp = "";
+    for (char c : dirpath) {
+        if (c == '/') {
+            if (!tmp.empty()) parts.push_back(tmp);
+            tmp = "";
+        } else {
+            tmp += c;
+        }
+    }
+    if (!tmp.empty()) parts.push_back(tmp);
+
+    if (parts.empty()) {
+        cout << "Invalid path\n";
+        return -1;
+    }
+
+    uint16_t current_block = cwd_block;
+    vector<dir_entry> entries;
+
+    // 2. Process each element in the path
+    for (int i = 0; i < parts.size(); i++) {
+        string name = parts[i];
+        bool is_last = (i == parts.size() - 1);
+
+        // Load current directory
+        entries.clear();
+        if (load_dir(current_block, entries) != 0) {
+            cout << "Could not load directory\n";
+            return -1;
+        }
+
+        // Check if directory already exists
+        int existing_index = -1;
+        for (int j = 0; j < entries.size(); j++) {
+            if (entries[j].file_name == name) {
+                if (entries[j].type == TYPE_FILE) {
+                    cout << "Cannot create directory: " << name << " is a file\n";
+                    return -1;
+            }
+                if (entries[j].type == TYPE_DIR) {
+                    existing_index = j;
+                    break;
+            }
+            }
+        }
+
+        if (existing_index >= 0) {
+            // Directory exists → move into it
+            current_block = entries[existing_index].first_blk;
+            continue;
+        }
+
+        // 3. Create the new directory (for missing parts)
+        int new_block;
+        try { new_block = alloc_block(); }
+        catch (...) {
+            cout << "Disk full\n";
+            return -1;
+        }
+
+        // Initialize empty directory block
+        uint8_t empty_block[BLOCK_SIZE] = {0};
+        if (disk.write(new_block, empty_block) != 0) {
+            cout << "Could not initialize new directory block\n";
+            fat[new_block] = FAT_FREE;
+            return -1;
+        }
+
+        // Build directory entry
+        dir_entry newdir{};
+        strncpy(newdir.file_name, name.c_str(), sizeof(newdir.file_name)-1);
+        newdir.type = TYPE_DIR;
+        newdir.size = 0;
+        newdir.first_blk = new_block;
+        newdir.access_rights = READ | WRITE | EXECUTE;
+
+        // Add entry to current directory
+        entries.push_back(newdir);
+
+        if (save_dir(current_block, entries) != 0) {
+            cout << "Could not save directory\n";
+            return -1;
+        }
+
+        save_fat();
+
+        // Move into the newly created directory
+        current_block = new_block;
     }
 
     return 0;
 }
-
 */
