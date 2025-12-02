@@ -87,6 +87,7 @@ public:
        =========== PERSON 3: FILE MANAGEMENT ==========
        ===================================================== */
 
+    int find_nr_of_free_blocks();                   // --- added (Signe) ---
     // create <filepath> creates a new file on the disk, the data content is
     // written on the following rows (ended with an empty row)
     int create(std::string filepath);
