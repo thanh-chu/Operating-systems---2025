@@ -1,7 +1,8 @@
 #include <iostream>
-#include <vector>
 #include <cstdint>
 #include "disk.h"
+#include <vector>
+#include <cstdint>
 
 #ifndef __FS_H__
 #define __FS_H__
@@ -34,9 +35,8 @@ private:
     Disk disk;
     // size of a FAT entry is 2 bytes
     int16_t fat[BLOCK_SIZE/2];
-
     uint16_t cwd_block = ROOT_BLOCK;     // --- added for person 2 --- nuvarande block
-    std::string cwd_path = "/";          // --- added for person 2 --- nuvarande path
+    string cwd_path = "/";          // --- added for person 2 --- nuvarande path, (Paths to directories are written as ’/dir1/subdir2’, and the root directory should be ’/’ (not ’root’))
 
 public:
     FS();
@@ -45,7 +45,7 @@ public:
 /* =====================================================
        =============== PERSON 1: FAT MANAGER ================
        ===================================================== */
-
+   
     int find_free_block();                          // --- added ---
     int alloc_block();                              // --- added ---
     vector<uint16_t> get_chain(uint16_t first_blk); // --- added ---
@@ -55,12 +55,16 @@ public:
     // formats the disk, i.e., creates an empty file system
     int format();
 
+    vector<dir_entry> read_dir();
+    void write_dir(const vector<dir_entry>& entries);
+    bool check_rights(const dir_entry &e, uint8_t rights);
+
 
     /* =====================================================
        =========== PERSON 2: DIRECTORY MANAGEMENT ===========
        ===================================================== */
-
-    // bool load_dir(uint16_t blk, std::vector<dir_entry>& list);    // --- added ---
+    
+  // bool load_dir(uint16_t blk, std::vector<dir_entry>& list);    // --- added ---
     int load_dir(uint16_t block_no, vector<dir_entry>& entries);
     // bool write_dir(uint16_t blk, const std::vector<dir_entry>& list); // --- added ---
     int save_dir(uint16_t block_no, vector<dir_entry>& entries);
@@ -105,5 +109,3 @@ public:
 };
 
 #endif // __FS_H__
-
-
