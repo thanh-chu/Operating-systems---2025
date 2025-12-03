@@ -155,11 +155,7 @@ bool FS::check_rights(const dir_entry &check_object, uint8_t rights) {
    ================= DIRECTORY MANAGEMENT ======================
    ============================================================ */
 
-// bool FS::load_dir(uint16_t blk, vector<dir_entry>& list) {
-//     cout << "[P2] load_dir stub\n";
-//     list.clear();
-//     return true;
-// }
+
 int FS::load_dir(uint16_t block_no, vector<dir_entry>& entries) {
     uint8_t buffer[BLOCK_SIZE];
 
@@ -179,10 +175,6 @@ int FS::load_dir(uint16_t block_no, vector<dir_entry>& entries) {
     return 0;
 }
 
-// bool FS::save_dir(uint16_t blk, const vector<dir_entry>& list) {
-//     cout << "[P2] save_dir stub\n";
-//     return true;
-// }
 
 int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
     uint8_t buffer[BLOCK_SIZE] = { 0 };
@@ -208,7 +200,8 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
 // mkdir <dirpath> creates a new sub-directory with the name <dirpath>
 // in the current directory
 
-int FS::mkdir(string dirpath) {
+int 
+FS::mkdir(string dirpath) {
 
     //Thanh: dirpath.size() can be longer than 55, only name of directory need to less than 55
     if (dirpath.empty() || dirpath.size() > 55) {
@@ -223,7 +216,13 @@ int FS::mkdir(string dirpath) {
         return -1;
     }
 
-    //Thanh: the access rights on a directory: WRITE with the parent directory
+   //Thanh: added to check the access rights on a directory: WRITE with the parent directory
+    if (parent_entry.file_name[0] != '\0'){
+        if (!check_rights(parent_entry, WRITE)) {
+            cout << "Permission denied: cannot create file in directory " << parent_entry.file_name << endl;
+            return -1;
+        }
+    }
 
     uint16_t parent_block = parent_entry.first_blk;
 
@@ -272,15 +271,10 @@ int FS::mkdir(string dirpath) {
     return 0;
 }
 
-// int
-// FS::mkdir(std::string dirpath)
-// {
-//     std::cout << "FS::mkdir(" << dirpath << ")\n";
-//     return 0;
-// }
 
 // ls lists the content in the currect directory (files and sub-directories)
-int FS::ls() {
+int 
+FS::ls() {
     vector<dir_entry> entries;
     //ta ut hur många entires det fins
 
@@ -290,7 +284,7 @@ int FS::ls() {
         return -1;
     }
 
-    //Thanh: the access rights on a directory must be correct for various file operations: READ of cwd
+    //Thanh: need the access rights: READ of cwd
     
     cout << "name" << "\t" << "type"  << "\t" << "accessrights"  << "\t" <<"size" << endl;
     //Thanh, change int to size_t
@@ -341,7 +335,8 @@ int FS::ls() {
 //     return 0;
 // }
 
-int FS::cd(string name) {   //Thanh: need to change string name to dirpath
+int 
+FS::cd(string name) { 
     dir_entry parent;
     string last_name;
     string path = name;
@@ -352,11 +347,8 @@ int FS::cd(string name) {   //Thanh: need to change string name to dirpath
     }
 
     //Thanh: need to add more to cover the case when dirname is ’..’
-    //Thanh: the access rights on a directory must be correct for various file operations
-    if (!check_rights(parent, EXECUTE)) {
-        cout << "Permission denied\n";
-        return -1;
-    }
+    //Thanh: need the access rights (EXCECUTE)
+    //Thanh: need to edit because if the last in path is file => does not exist in parent so we can not compare parent.type to catch exception
 
     if (parent.first_blk == 0){
         cwd_block = parent.first_blk;
@@ -428,6 +420,7 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
     }
     if(parts.size() != 0){
         new_name = parts.back();
+      
     }else{
         path_in = "/";
     }
@@ -442,15 +435,28 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
                 return false;
             }
 
-            bool found_map = false;
+           bool found_map = false;
             //Thanh, changed int to size_t
             for(size_t i = 0; i < entires.size(); i++){
-                if(entires[i].type == TYPE_DIR && entires[i].file_name == name){
-                    entry = entires[i];
-                    current_block = entires[i].first_blk;
+                //Thanh added: to check if the path has form file/file or file/directory - begin
+                if(entires[i].file_name == name && entires[i].type == TYPE_FILE)
+                {
+                    if (name != parts.back()) {
+                        if (throw_not_found) {
+                            throw runtime_error("Not a directory");
+                        }
+                        return false;
+                    }
                     found_map = true;
-                    continue;
+                    break;
                 }
+                //Thanh added: to check if the path has form file/file or file/directory - end
+              if(entires[i].type == TYPE_DIR && entires[i].file_name == name){
+                  entry = entires[i];
+                  current_block = entires[i].first_blk;
+                  found_map = true;
+                  continue;
+             }   
             }
             if (throw_not_found == true && found_map == false){
                 return false;
@@ -595,10 +601,12 @@ int FS::create(std::string filepath)
         return -1;
     }
 
-    if (!(parent_entry.access_rights & WRITE))
-    {
-        std::cout << "Insufficient access rights" << std::endl;
-        return -1; 
+  //Thanh confict: Jag tycker att man ban skriva så här för att undvika att parent_entry är tom för att man skapar en fil on root
+if (parent_entry.file_name[0] != '\0'){
+        if (!check_rights(parent_entry, WRITE)) {
+            cout << "Insufficient access rights" << parent_entry.file_name << endl;
+            return -1;
+        }
     }
     
     //Kontrollera om filename för långt. I så fall error!
@@ -609,7 +617,19 @@ int FS::create(std::string filepath)
 
     //Kontrollera om filename finns. I så fall error!
     vector<dir_entry> entries;
-    load_dir(parent_entry.first_blk, entries);
+    
+    //Thanh confict: begin
+      
+    if(load_dir(parent_entry.first_blk, entries) != 0){
+        cout << "Could not load directory";
+        return -1;
+    }
+      
+    if (entries.size() >= DIR_ENTRIES) {
+        cout << "Directory full\n";
+        return -1;
+    }
+    //Thanh confict: end: ändra uppe för att kontrollera om man inte kan ladda ner directory och root är full: load_dir(parent_entry.first_blk, entries);
     
     for (size_t i = 0; i < entries.size(); i++) {
         if (filename == entries[i].file_name) {
@@ -629,6 +649,8 @@ int FS::create(std::string filepath)
     size_t size = result.length(); // we check how many bytes needed for the file 
     size_t needed_blocks = size/BLOCK_SIZE + 1; // here we check how many blocks we need
 
+      
+    //Thanh conflict: size_t needed_blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
     dir_entry entry = {};
     strncpy(entry.file_name, filename.c_str(), sizeof(entry.file_name));
     entry.type = TYPE_FILE;
@@ -636,13 +658,14 @@ int FS::create(std::string filepath)
     entry.size = size;
     entry.first_blk = FAT_EOF;
 
+      
     vector<int> allocated_blocks = {};
     if (!result.empty()) {
-        if(needed_blocks > find_nr_of_free_blocks()){
+        if(needed_blocks > static_cast<size_t>(find_nr_of_free_blocks())){
             std::cout << "Disk is full" << std::endl;
             return -1;
         }
-        for (int i = 0; i < needed_blocks; i++){
+        for (size_t i = 0; i < needed_blocks; i++){
             try {
                 int new_alloc_block = alloc_block();
                 allocated_blocks.push_back(new_alloc_block);
@@ -657,7 +680,7 @@ int FS::create(std::string filepath)
         int16_t curr = allocated_blocks[0];
         size_t pos = 0;
 
-        for (int i = 0; i < needed_blocks; i++) {
+        for (size_t i = 0; i < needed_blocks; i++) {
             uint8_t buffer[BLOCK_SIZE] = {0};
 
             size_t bytes = min((size_t)BLOCK_SIZE, result.size() - pos);
@@ -676,7 +699,10 @@ int FS::create(std::string filepath)
     }
     save_fat();
 
+          
+        
     // Add to directory
+    //discutera med Signe om det: parent_block = parent_entry.first_blk
     entries.push_back(entry);
     save_dir(parent_entry.first_blk, entries);
     //std::cout << "FS::create(" << filepath << ")\n";
@@ -689,20 +715,24 @@ FS::cat(std::string filepath) {
     dir_entry parent_entry{};
     string file_name;
 
+
     if (!resolve_path(filepath, parent_entry, file_name)) {
         cout << "File not found from path\n";
         return -1;
     }
 
-    //Thanh: the access rights on a directory must be correct for various file operations
-    if (!check_rights(parent_entry, READ)) {
-        cout << "Permission denied\n";
-        return -1;
+    if (parent_entry.file_name[0] != '\0'){
+        if (!check_rights(parent_entry, WRITE)) {
+            cout << "Permission denied: cannot create file in directory " << parent_entry.file_name << endl;
+            return -1;
+        }
     }
-
+    
+    uint16_t parent_block = parent_entry.first_blk;
     vector<dir_entry> dir;
-    if (load_dir(cwd_block, dir) != 0) {
-        cout << "could not load current directory\n";
+    
+    if(load_dir(parent_block, dir) != 0){
+        cout << "Could not load directory";
         return -1;
     }
 
@@ -719,8 +749,14 @@ FS::cat(std::string filepath) {
             } 
         }
     }
+
+
     if (!found) { cout << "File not found\n"; return -1; }
 
+    if (!check_rights(file, READ)) {
+        cout << "Permission denied with cat: cannot read file\n";
+        return -1;
+    }
     int remaining = file.size;
     int16_t blk = file.first_blk;
     if (blk == FAT_EOF && remaining > 0) {
@@ -740,4 +776,3 @@ FS::cat(std::string filepath) {
     }
     return 0;
 }
-
