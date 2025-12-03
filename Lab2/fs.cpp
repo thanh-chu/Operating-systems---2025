@@ -350,15 +350,10 @@ FS::cd(string name) {
     //Thanh: need the access rights (EXCECUTE)
     //Thanh: need to edit because if the last in path is file => does not exist in parent so we can not compare parent.type to catch exception
 
-    if (parent.first_blk == ROOT_BLOCK){
-        cwd_block = parent.first_blk;
+    if (path == "/"){
+        cwd_block = ROOT_BLOCK;
         cwd_path = path;
         return 0;
-    }
-
-    if (!parent.access_rights == EXECUTE){
-        cout << "invalid permission"<<endl;
-        return -1;
     }
 
     vector<dir_entry> entries;
@@ -473,7 +468,7 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
                     break;
                 }
                 //Thanh added: to check if the path has form file/file or file/directory - end
-              if(entires[i].type == TYPE_DIR && entires[i].file_name == name){
+              if(entires[i].type == TYPE_DIR && entires[i].file_name == name && check_rights(entires[i], EXECUTE) == true){
                 //Thanh edit-  begin - to check if the directory is the last => not add to entry, only become new_name
                 if(name == parts.back()){
                     new_name = name;
