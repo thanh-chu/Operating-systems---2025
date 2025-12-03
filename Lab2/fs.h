@@ -58,7 +58,7 @@ public:
     vector<dir_entry> read_dir();
     void write_dir(const vector<dir_entry>& entries);
     bool check_rights(const dir_entry &e, uint8_t rights);
-
+    int find_nr_of_free_blocks();
 
     /* =====================================================
        =========== PERSON 2: DIRECTORY MANAGEMENT ===========
