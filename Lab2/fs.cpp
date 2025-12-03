@@ -226,21 +226,21 @@ FS::mkdir(string dirpath) {
 
     uint16_t parent_block = parent_entry.first_blk;
 
-    vector<dir_entry> entries; // array att fylla
-    int res = load_dir(parent_block, entries);
+    vector<dir_entry> parent_entries; // array att fylla
+    int res = load_dir(parent_block, parent_entries);
     if (res < 0) {
         std::cout << "could not load current directory\n";
         return -1;
     }
 
-    for (size_t i = 0; i < entries.size(); i++) {
-        if (new_name == entries[i].file_name) {
+    for (size_t i = 0; i < parent_entries.size(); i++) {
+        if (new_name == parent_entries[i].file_name) {
             cout << "Directory already exists" << endl;
             return -1;
         }
     }
 
-    if (entries.size() >= DIR_ENTRIES) {
+    if (parent_entries.size() >= DIR_ENTRIES) {
         cout << "Directory full" << endl;
         return -1;
     }
@@ -253,24 +253,41 @@ FS::mkdir(string dirpath) {
         return -1;
     }
 
-    dir_entry map{};
-    strncpy(map.file_name, new_name.c_str(), sizeof(map.file_name) - 1);
-    map.size = 0;
-    map.first_blk = new_block; // index in the FAT for the first block of the file
-    map.type = TYPE_DIR; // directory (1) or file (0)
-    map.access_rights = READ | WRITE | EXECUTE;  // read (0x04), write (0x02), execute (0x01)
-    entries.push_back(map);
+    dir_entry new_dir_entry{};
+    strncpy(new_dir_entry.file_name, new_name.c_str(), sizeof(new_dir_entry.file_name) - 1);
+    new_dir_entry.size = 0;
+    new_dir_entry.first_blk = new_block;
+    new_dir_entry.type = TYPE_DIR;
+    new_dir_entry.access_rights = READ | WRITE | EXECUTE;
 
-    res = save_dir(parent_block, entries);
+    parent_entries.push_back(new_dir_entry);
+
+    res = save_dir(parent_block, parent_entries);
     if (res < 0) {
-        cout << "could not save current directory" << endl;
+        cout << "could not save parent directory" << endl;
+        return -1;
+    }
+
+    vector<dir_entry> new_entries;
+
+    dir_entry back{};
+    strncpy(back.file_name, "..", sizeof(back.file_name) - 1);
+    back.size = parent_entry.size;
+    back.first_blk = parent_entry.first_blk;
+    back.type = parent_entry.type;
+    back.access_rights = parent_entry.access_rights;
+
+    new_entries.push_back(back);
+
+    res = save_dir(new_block, new_entries);
+    if (res < 0) {
+        cout << "could not save new directory" << endl;
         return -1;
     }
 
     save_fat();
     return 0;
 }
-
 
 // ls lists the content in the currect directory (files and sub-directories)
 int
