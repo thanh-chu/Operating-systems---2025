@@ -259,7 +259,7 @@ FS::mkdir(string dirpath) {
     map.first_blk = new_block; // index in the FAT for the first block of the file
     map.type = TYPE_DIR; // directory (1) or file (0)
     map.access_rights = READ | WRITE | EXECUTE;  // read (0x04), write (0x02), execute (0x01)
-    entries.insert(entries.begin(), map);
+    entries.push_back(map);
 
     res = save_dir(parent_block, entries);
     if (res < 0) {
@@ -419,8 +419,7 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
         path_in += "/" + i;
     }
     if(parts.size() != 0){
-        new_name = parts.back();
-      
+        new_name = parts.back();      
     }else{
         path_in = "/";
     }
@@ -452,10 +451,19 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
                 }
                 //Thanh added: to check if the path has form file/file or file/directory - end
               if(entires[i].type == TYPE_DIR && entires[i].file_name == name){
-                  entry = entires[i];
-                  current_block = entires[i].first_blk;
-                  found_map = true;
-                  continue;
+                //Thanh edit-  begin - to check if the directory is the last => not add to entry, only become new_name
+                if(name == parts.back()){
+                    new_name = name;
+                    found_map = true;
+                    break;
+                }
+                entry = entires[i];
+                current_block = entires[i].first_blk;
+                found_map = true;
+                continue;
+                //thanh edit - end
+                
+            
              }   
             }
             if (throw_not_found == true && found_map == false){
