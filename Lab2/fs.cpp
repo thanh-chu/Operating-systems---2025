@@ -145,7 +145,7 @@ FS::format()
 }
 
 
-//Thanh: Creat a function to check the right the access a directory/a file
+//Thanh: Created a function to check the right the access a directory/a file
 bool check_rights(const dir_entry &check_object, uint8_t rights) {
     return (check_object.access_rights & rights) == rights;
 }
@@ -155,11 +155,7 @@ bool check_rights(const dir_entry &check_object, uint8_t rights) {
    ================= DIRECTORY MANAGEMENT ======================
    ============================================================ */
 
-// bool FS::load_dir(uint16_t blk, vector<dir_entry>& list) {
-//     cout << "[P2] load_dir stub\n";
-//     list.clear();
-//     return true;
-// }
+
 int FS::load_dir(uint16_t block_no, vector<dir_entry>& entries) {
     uint8_t buffer[BLOCK_SIZE];
 
@@ -179,10 +175,6 @@ int FS::load_dir(uint16_t block_no, vector<dir_entry>& entries) {
     return 0;
 }
 
-// bool FS::save_dir(uint16_t blk, const vector<dir_entry>& list) {
-//     cout << "[P2] save_dir stub\n";
-//     return true;
-// }
 
 int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
     uint8_t buffer[BLOCK_SIZE] = { 0 };
@@ -208,7 +200,8 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
 // mkdir <dirpath> creates a new sub-directory with the name <dirpath>
 // in the current directory
 
-int FS::mkdir(string dirpath) {
+int 
+FS::mkdir(string dirpath) {
 
     //Thanh: dirpath.size() can be longer than 55, only name of directory need to less than 55
     if (dirpath.empty() || dirpath.size() > 55) {
@@ -223,7 +216,13 @@ int FS::mkdir(string dirpath) {
         return -1;
     }
 
-    //Thanh: the access rights on a directory: WRITE with the parent directory
+   //Thanh: added to check the access rights on a directory: WRITE with the parent directory
+    if (parent_entry.file_name[0] != '\0'){
+        if (!check_rights(parent_entry, WRITE)) {
+            cout << "Permission denied: cannot create file in directory " << parent_entry.file_name << endl;
+            return -1;
+        }
+    }
 
     uint16_t parent_block = parent_entry.first_blk;
 
@@ -272,15 +271,10 @@ int FS::mkdir(string dirpath) {
     return 0;
 }
 
-// int
-// FS::mkdir(std::string dirpath)
-// {
-//     std::cout << "FS::mkdir(" << dirpath << ")\n";
-//     return 0;
-// }
 
 // ls lists the content in the currect directory (files and sub-directories)
-int FS::ls() {
+int 
+FS::ls() {
     vector<dir_entry> entries;
     //ta ut hur många entires det fins
 
@@ -290,10 +284,10 @@ int FS::ls() {
         return -1;
     }
 
-    //Thanh: the access rights on a directory must be correct for various file operations: READ of cwd
+    //Thanh: need the access rights: READ of cwd
     
     cout << "name" << "\t" << "type"  << "\t" <<"size" << endl;
-    //Thanh, change int to size_t
+    //Thanh, changed int to size_t
     for (size_t i = 0; i < entries.size() ; i++) {
         string type = "";
         if(entries[i].type == TYPE_DIR){
@@ -324,7 +318,8 @@ int FS::ls() {
 //     return 0;
 // }
 
-int FS::cd(string name) {   //Thanh: need to change string name to dirpath
+int 
+FS::cd(string name) { 
     dir_entry parent;
     string last_name;
     string path = name;
@@ -335,11 +330,8 @@ int FS::cd(string name) {   //Thanh: need to change string name to dirpath
     }
 
     //Thanh: need to add more to cover the case when dirname is ’..’
-    //Thanh: the access rights on a directory must be correct for various file operations
-    if (!check_rights(parent, EXECUTE)) {
-        cout << "Permission denied\n";
-        return -1;
-    }
+    //Thanh: need the access rights (EXCECUTE)
+
 
     if (parent.first_blk == 0){
         cwd_block = parent.first_blk;
@@ -411,6 +403,7 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
     }
     if(parts.size() != 0){
         new_name = parts.back();
+        parts.pop_back(); //Thanh added
     }else{
         path_in = "/";
     }
@@ -425,15 +418,22 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
                 return false;
             }
 
-            bool found_map = false;
+           bool found_map = false;
             //Thanh, changed int to size_t
             for(size_t i = 0; i < entires.size(); i++){
-                if(entires[i].type == TYPE_DIR && entires[i].file_name == name){
-                    entry = entires[i];
-                    current_block = entires[i].first_blk;
+                //Thanh added: to check if the path has form file/file or file/directory - begin
+                if(entires[i].file_name == name && entires[i].type == TYPE_FILE)
+                {
+                    if (name != parts.back()) {
+                        if (throw_not_found) {
+                            throw runtime_error("Not a directory");
+                        }
+                        return false;
+                    }
                     found_map = true;
-                    continue;
+                    break;
                 }
+                //Thanh added: to check if the path has form file/file or file/directory - end
             }
             if (throw_not_found == true && found_map == false){
                 return false;
@@ -529,16 +529,12 @@ int FS::create(string filepath)
         return -1;
     }
 
-    //Thanh: the access rights on a directory must be correct for various file operations
-    if (!check_rights(parent_entry, WRITE)) {
-        cout << "Permission denied\n";
-        return -1;
+    if (parent_entry.file_name[0] != '\0'){
+        if (!check_rights(parent_entry, WRITE)) {
+            cout << "Permission denied: cannot create file in directory " << parent_entry.file_name << endl;
+            return -1;
+        }
     }
-
-    // if (parent_entry.type != TYPE_DIR) {
-    //     cout << "Parent is not a directory\n";
-    //     return -1;
-    // }
     
     if (filename.size() > 55) {
         cout << "Filename too long\n";
@@ -571,8 +567,6 @@ int FS::create(string filepath)
     entry.access_rights = READ|WRITE;
     entry.size = 0;
     entry.first_blk = FAT_EOF;
-
-    cout << "Enter file contents (empty line stops):\n";
 
     string line;
     vector<uint8_t> content;
@@ -624,9 +618,7 @@ int FS::create(string filepath)
 
     // Add to directory
     dir.push_back(entry);
-    save_dir(cwd_block, dir);
-
-    cout << "File created.\n";
+    save_dir(parent_block, dir);
     return 0;
 }
 
@@ -636,20 +628,24 @@ FS::cat(std::string filepath) {
     dir_entry parent_entry{};
     string file_name;
 
+
     if (!resolve_path(filepath, parent_entry, file_name)) {
         cout << "File not found from path\n";
         return -1;
     }
 
-    //Thanh: the access rights on a directory must be correct for various file operations
-    if (!check_rights(parent_entry, READ)) {
-        cout << "Permission denied\n";
-        return -1;
+    if (parent_entry.file_name[0] != '\0'){
+        if (!check_rights(parent_entry, WRITE)) {
+            cout << "Permission denied: cannot create file in directory " << parent_entry.file_name << endl;
+            return -1;
+        }
     }
-
+    
+    uint16_t parent_block = parent_entry.first_blk;
     vector<dir_entry> dir;
-    if (load_dir(cwd_block, dir) != 0) {
-        cout << "could not load current directory\n";
+    
+    if(load_dir(parent_block, dir) != 0){
+        cout << "Could not load directory";
         return -1;
     }
 
@@ -666,8 +662,14 @@ FS::cat(std::string filepath) {
             } 
         }
     }
+
+
     if (!found) { cout << "File not found\n"; return -1; }
 
+    if (!check_rights(file, READ)) {
+        cout << "Permission denied with cat: cannot read file\n";
+        return -1;
+    }
     int remaining = file.size;
     int16_t blk = file.first_blk;
     if (blk == FAT_EOF && remaining > 0) {
@@ -687,4 +689,3 @@ FS::cat(std::string filepath) {
     }
     return 0;
 }
-
