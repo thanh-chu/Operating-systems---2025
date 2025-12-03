@@ -346,38 +346,39 @@ FS::cd(string name) {
         return -1;
     }
 
-    //Thanh: need to add more to cover the case when dirname is ’..’
+    //Thanh: need to add more to cover the case when dirname is ’..’ kan inte ha ett namn som är det här!
     //Thanh: need the access rights (EXCECUTE)
     //Thanh: need to edit because if the last in path is file => does not exist in parent so we can not compare parent.type to catch exception
 
-    // if (parent.first_blk == 0){
-    //     cwd_block = parent.first_blk;
-    //     cwd_path = path;
-    //     return 0;
-    // }
+    if (parent.first_blk == ROOT_BLOCK){
+        cwd_block = parent.first_blk;
+        cwd_path = path;
+        return 0;
+    }
 
-    // Leta upp sista namnet i parent-katalogen
+    if (!parent.access_rights == EXECUTE){
+        cout << "invalid permission"<<endl;
+        return -1;
+    }
+
     vector<dir_entry> entries;
     if (load_dir(parent.first_blk, entries) < 0) {
         cout << "could not load directory\n";
         return -1;
     }
 
-    // Försök hitta katalogen direkt och cd:a
     for (auto &e : entries) {
         if (e.file_name == last_name) {
             if (e.type == TYPE_FILE) {
                 cout << "can not do cd on a file" << endl;
                 return -1;
             }
-            // Här kan du kolla EXECUTE-rättighet också
             cwd_block = e.first_blk;
             cwd_path  = path;
             return 0;
         }
     }
 
-    // Om vi kommer hit hittades inget med det namnet
     cout << "directory not found" << endl;
     return -1;
 }
@@ -411,7 +412,9 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
         if (path_list == '/') {
             if (!current.empty()) {
                 if(current == ".."){
-                    parts.pop_back();
+                    if(parts.size()){
+                        parts.pop_back();
+                    }
                 }
             else{
                 parts.push_back(current);
@@ -426,7 +429,9 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
     }
     if (!current.empty()) {
         if(current == ".."){
-            parts.pop_back();
+            if(parts.size()){
+                parts.pop_back();
+            }
         }else{
             parts.push_back(current);
         }
@@ -452,7 +457,7 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
                 return false;
             }
 
-           bool found_map = false;
+            bool found_map = false;
             //Thanh, changed int to size_t
             for(size_t i = 0; i < entires.size(); i++){
                 //Thanh added: to check if the path has form file/file or file/directory - begin
@@ -480,8 +485,6 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
                 found_map = true;
                 continue;
                 //thanh edit - end
-
-
              }
             }
             if (throw_not_found == true && found_map == false){
