@@ -24,7 +24,6 @@ FS::FS()
 
 FS::~FS()
 {
-    // Person 1: ensure FAT is saved before exit
     try {
         save_fat();
     } catch (const std::runtime_error& e){
@@ -32,10 +31,6 @@ FS::~FS()
     }
 }
 
-/* ============================================================
-   ====================== PERSON 1 =============================
-   =================== FAT + DISK MANAGER ======================
-   ============================================================ */
 
 //check all FAT and return the first free block from the first block, help-funtion for get_chain
 int
@@ -145,16 +140,10 @@ FS::format()
 }
 
 
-//Thanh: Creat a function to check the right the access a directory/a file
+//function to check the right the access a directory/a file
 bool FS::check_rights(const dir_entry &check_object, uint8_t rights) {
     return (check_object.access_rights & rights) == rights;
 }
-
-/* ============================================================
-   ====================== PERSON 2 =============================
-   ================= DIRECTORY MANAGEMENT ======================
-   ============================================================ */
-
 
 int FS::load_dir(uint16_t block_no, vector<dir_entry>& entries) {
     uint8_t buffer[BLOCK_SIZE];
@@ -165,7 +154,6 @@ int FS::load_dir(uint16_t block_no, vector<dir_entry>& entries) {
     }
 
     dir_entry* p = reinterpret_cast<dir_entry*>(buffer);
-    //Thanh, changed int to size_t
     for (size_t i = 0; i < DIR_ENTRIES; i++) {
         if (p[i].file_name[0] != '\0') {
             entries.push_back(p[i]);
@@ -184,7 +172,6 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
         entrie_size = DIR_ENTRIES;
     }
 
-    //Thanh, change int to size_t
     dir_entry* p = reinterpret_cast<dir_entry*>(buffer);
     for (size_t i = 0; i < entrie_size; i++) {
         p[i] = entries[i];
@@ -199,24 +186,28 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
 
 // mkdir <dirpath> creates a new sub-directory with the name <dirpath>
 // in the current directory
-
 int
 FS::mkdir(string dirpath) {
 
-    //Thanh: dirpath.size() can be longer than 55, only name of directory need to less than 55
-    if (dirpath.empty() || dirpath.size() > 55) {
-        cout << "name not valid" << endl;
+    
+    if (dirpath.empty()) {
+        cout << "Error: dirpath is not valid" << endl;
         return -1;
     }
 
     dir_entry parent_entry{};
     string new_name;
     if (!resolve_path(dirpath, parent_entry, new_name)) {
-        cout << "no such directory (parent) for: " << dirpath << endl;
+        cout << "Error: no such directory (parent) for: " << dirpath << endl;
         return -1;
     }
 
-   //Thanh: added to check the access rights on a directory: WRITE with the parent directory
+    if (new_name.size() > 55) {
+        cout << "Error: filename is not valid," << endl;
+        return -1;
+    }
+
+   //Check the access rights on a directory: WRITE with the parent directory
     if (parent_entry.file_name[0] != '\0'){
         if (!check_rights(parent_entry, WRITE)) {
             cout << "Permission denied: cannot create file in directory " << parent_entry.file_name << endl;
@@ -229,19 +220,19 @@ FS::mkdir(string dirpath) {
     vector<dir_entry> parent_entries; // array att fylla
     int res = load_dir(parent_block, parent_entries);
     if (res < 0) {
-        std::cout << "could not load current directory\n";
+        std::cout << "Error: could not load current directory\n";
         return -1;
     }
 
     for (size_t i = 0; i < parent_entries.size(); i++) {
         if (new_name == parent_entries[i].file_name) {
-            cout << "Directory already exists" << endl;
+            cout << "Error: Directory already exists" << endl;
             return -1;
         }
     }
 
     if (parent_entries.size() >= DIR_ENTRIES) {
-        cout << "Directory full" << endl;
+        cout << "Error: Directory full" << endl;
         return -1;
     }
 
@@ -249,7 +240,7 @@ FS::mkdir(string dirpath) {
     try {
         new_block = alloc_block();
     } catch (const std::runtime_error& e) {
-        cout << "disk is full\n";
+        cout << "Error: Disk is full\n";
         return -1;
     }
 
@@ -264,7 +255,7 @@ FS::mkdir(string dirpath) {
 
     res = save_dir(parent_block, parent_entries);
     if (res < 0) {
-        cout << "could not save parent directory" << endl;
+        cout << "Error: could not save parent directory" << endl;
         return -1;
     }
 
@@ -281,7 +272,7 @@ FS::mkdir(string dirpath) {
 
     res = save_dir(new_block, new_entries);
     if (res < 0) {
-        cout << "could not save new directory" << endl;
+        cout << "Error: could not save new directory" << endl;
         return -1;
     }
 
@@ -293,20 +284,55 @@ FS::mkdir(string dirpath) {
 int
 FS::ls() {
     vector<dir_entry> entries;
-    //ta ut hur många entires det fins
+    //ta ut hur många entries det finns
 
     int status_block = load_dir(cwd_block, entries); //leta upp
     if (status_block != 0) {
-        cout << "ls: could not load directory block" << endl;
+        cout << "Error: could not load directory block" << endl;
         return -1;
     }
 
-    //Thanh: need the access rights: READ of cwd
+    //check rights if not root
+    dir_entry parent;
+    bool found_parent = false;
+    for(auto& temp:entries){
+        if (strcmp(temp.file_name, "..") == 0){
+            parent = temp;
+            found_parent = true;
+            break;
+        }
+    }
+
+    if(!found_parent){
+        cout << "Error: not found parent directory.\n";
+        return -1;
+    }
+
+    dir_entry cwd_entry;
+    bool found = false;
+    for(auto& temp: parent_entries){
+        if(temp.firsk_blk = cwd_block){
+            cwd_entry = temp;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        cout << "Error: cwd entry not found" << endl;
+        return -1;
+    }
+
+    if (!check_rights(cwd_entry, READ)) {
+        cout << "Error: permission denied to read current directory" << endl;
+        return -1;
+    }
 
     cout << "name" << "\t" << "type"  << "\t" << "accessrights"  << "\t" <<"size" << endl;
-    //Thanh, change int to size_t
     for (size_t i = 0; i < entries.size() ; i++) {
         string type = "";
+        //Thanh: run test4 with this so all file/directory has name ".." not show when run ls
+        //if(strcmp(entries[i].file_name, "..") == 0) continue;
         if(entries[i].type == TYPE_DIR){
             type = "dir";
         }else{
@@ -345,13 +371,6 @@ FS::ls() {
 
 
 // cd <dirpath> changes the current (working) directory to the directory named <dirpath>
-// int
-// FS::cd(std::string dirpath)
-// {
-//     std::cout << "FS::cd(" << dirpath << ")\n";
-//     return 0;
-// }
-
 int
 FS::cd(string name) {
     dir_entry parent;
@@ -359,13 +378,9 @@ FS::cd(string name) {
     string path = name;
 
     if (!resolve_path(path, parent, last_name, true)) {
-        cout << "directory not found" << endl;
+        cout << "Error: directory not found or permission denied to enter directory" << endl;
         return -1;
     }
-
-    //Thanh: need to add more to cover the case when dirname is ’..’ kan inte ha ett namn som är det här!
-    //Thanh: need the access rights (EXCECUTE)
-    //Thanh: need to edit because if the last in path is file => does not exist in parent so we can not compare parent.type to catch exception
 
     if (path == "/"){
         cwd_block = ROOT_BLOCK;
@@ -375,14 +390,14 @@ FS::cd(string name) {
 
     vector<dir_entry> entries;
     if (load_dir(parent.first_blk, entries) < 0) {
-        cout << "could not load directory\n";
+        cout << "Error: could not load directory\n";
         return -1;
     }
 
     for (auto &e : entries) {
         if (e.file_name == last_name) {
             if (e.type == TYPE_FILE) {
-                cout << "can not do cd on a file" << endl;
+                cout << "Error: could not do cd on a file" << endl;
                 return -1;
             }
             cwd_block = e.first_blk;
@@ -391,7 +406,7 @@ FS::cd(string name) {
         }
     }
 
-    cout << "directory not found" << endl;
+    cout << "Error: directory not found" << endl;
     return -1;
 }
 
@@ -417,7 +432,6 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
 
     string current;
     vector<std::string> parts;
-    //Thanh, changed int to size_t
     for (size_t i = 0; i < path.size(); ++i) {
         char path_list = path[i];
 
@@ -470,23 +484,19 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
             }
 
             bool found_map = false;
-            //Thanh, changed int to size_t
             for(size_t i = 0; i < entires.size(); i++){
-                //Thanh added: to check if the path has form file/file or file/directory - begin
                 if(entires[i].file_name == name && entires[i].type == TYPE_FILE)
                 {
                     if (name != parts.back()) {
                         if (throw_not_found) {
-                            throw runtime_error("Not a directory");
+                            throw runtime_error("Error: Not a directory");
                         }
                         return false;
                     }
                     found_map = true;
                     break;
                 }
-                //Thanh added: to check if the path has form file/file or file/directory - end
               if(entires[i].type == TYPE_DIR && entires[i].file_name == name && check_rights(entires[i], EXECUTE) == true){
-                //Thanh edit-  begin - to check if the directory is the last => not add to entry, only become new_name
                 if(name == parts.back()){
                     new_name = name;
                     found_map = true;
@@ -496,7 +506,6 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
                 current_block = entires[i].first_blk;
                 found_map = true;
                 continue;
-                //thanh edit - end
              }
             }
             if (throw_not_found == true && found_map == false){
@@ -507,28 +516,6 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
     return true;
 }
 
-
-/* ============================================================
-   ====================== PERSON 3 =============================
-   ===================== FILE OPERATIONS ======================
-   ============================================================ */
-
-//create <filepath> creates a new file on the disk, the data content is
-//written on the following rows (ended with an empty row)
-// int
-// FS::create(std::string filepath)
-// {
-//     std::cout << "FS::create(" << filepath << ")\n";
-//     return 0;
-// }
-
-// cat <filepath> reads the content of a file and prints it on the screen
-// int
-// FS::cat(std::string filepath)
-// {
-//     std::cout << "FS::cat(" << filepath << ")\n";
-//     return 0;
-// }
 
 // cp <sourcepath> <destpath> makes an exact copy of the file
 // <sourcepath> to a new file <destpath>
@@ -635,12 +622,12 @@ FS::chmod(std::string accessrights, std::string filepath)
     try{
         accessrights_as_int = stoi(accessrights);
     } catch(const std::invalid_argument &e) {
-        std::cout << "Wrong format accessrights" << std::endl;
+        std::cout << "Error: Wrong format accessrights" << std::endl;
         return -1;
     }
 
     if(accessrights_as_int>7 || accessrights_as_int < 0){
-        std::cout << "Wrong format accessrights" << std::endl;
+        std::cout << "Error: Wrong format accessrights" << std::endl;
         return -1;
     }
 
@@ -648,13 +635,13 @@ FS::chmod(std::string accessrights, std::string filepath)
     string file_name;
 
     if (!resolve_path(filepath, parent_entry, file_name)) {
-        cout << "File not found from path\n";
+        cout << "Error: File not found from path\n";
         return -1;
     }
 
     vector<dir_entry> dir;
     if (load_dir(parent_entry.first_blk, dir) != 0) {
-        cout << "could not load current directory\n";
+        cout << "Error: could not load current directory\n";
         return -1;
     }
 
@@ -667,7 +654,7 @@ FS::chmod(std::string accessrights, std::string filepath)
             break;
         }
     }
-    if (!found) { cout << "File not found\n"; return -1; }
+    if (!found) { cout << "Error: File not found\n"; return -1; }
 
     save_dir(parent_entry.first_blk, dir);
     //std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
@@ -698,8 +685,7 @@ int FS::create(std::string filepath)
         return -1;
     }
 
-  //Thanh confict: Jag tycker att man ban skriva så här för att undvika att parent_entry är tom för att man skapar en fil on root
-if (parent_entry.file_name[0] != '\0'){
+    if (parent_entry.file_name[0] != '\0'){
         if (!check_rights(parent_entry, WRITE)) {
             cout << "Insufficient access rights" << parent_entry.file_name << endl;
             return -1;
@@ -708,29 +694,26 @@ if (parent_entry.file_name[0] != '\0'){
 
     //Kontrollera om filename för långt. I så fall error!
     if(filename.size() > 55){
-        std::cout << "Filename too long" << std::endl;
+        std::cout << "Error: Filename too long" << std::endl;
         return -1;
     }
 
     //Kontrollera om filename finns. I så fall error!
     vector<dir_entry> entries;
 
-    //Thanh confict: begin
-
     if(load_dir(parent_entry.first_blk, entries) != 0){
-        cout << "Could not load directory";
+        cout << "Error: Could not load directory";
         return -1;
     }
 
     if (entries.size() >= DIR_ENTRIES) {
-        cout << "Directory full\n";
+        cout << "Error: Directory full\n";
         return -1;
     }
-    //Thanh confict: end: ändra uppe för att kontrollera om man inte kan ladda ner directory och root är full: load_dir(parent_entry.first_blk, entries);
 
     for (size_t i = 0; i < entries.size(); i++) {
         if (filename == entries[i].file_name) {
-            cout << "File already exists" << endl;
+            cout << "Error: File already exists" << endl;
             return -1;
         }
     }
@@ -747,7 +730,7 @@ if (parent_entry.file_name[0] != '\0'){
     size_t needed_blocks = size/BLOCK_SIZE + 1; // here we check how many blocks we need
 
 
-    //Thanh conflict: size_t needed_blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    //Thanh: size_t needed_blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
     dir_entry entry = {};
     strncpy(entry.file_name, filename.c_str(), sizeof(entry.file_name));
     entry.type = TYPE_FILE;
@@ -759,7 +742,7 @@ if (parent_entry.file_name[0] != '\0'){
     vector<int> allocated_blocks = {};
     if (!result.empty()) {
         if(needed_blocks > static_cast<size_t>(find_nr_of_free_blocks())){
-            std::cout << "Disk is full" << std::endl;
+            std::cout << "Error: Disk is full" << std::endl;
             return -1;
         }
         for (size_t i = 0; i < needed_blocks; i++){
@@ -767,7 +750,7 @@ if (parent_entry.file_name[0] != '\0'){
                 int new_alloc_block = alloc_block();
                 allocated_blocks.push_back(new_alloc_block);
             } catch (const std::runtime_error& e) {
-                cout << "disk is full\n";
+                cout << "Error: disk is full\n";
                 return -1;
             }
 
@@ -798,15 +781,12 @@ if (parent_entry.file_name[0] != '\0'){
 
 
 
-    // Add to directory
-    //discutera med Signe om det: parent_block = parent_entry.first_blk
     entries.push_back(entry);
     save_dir(parent_entry.first_blk, entries);
-    //std::cout << "FS::create(" << filepath << ")\n";
     return 0;
 }
 
-//Thanh
+
 int
 FS::cat(std::string filepath) {
     dir_entry parent_entry{};
@@ -814,22 +794,15 @@ FS::cat(std::string filepath) {
 
 
     if (!resolve_path(filepath, parent_entry, file_name)) {
-        cout << "File not found from path\n";
+        cout << "Error: File not found from path\n";
         return -1;
-    }
-
-    if (parent_entry.file_name[0] != '\0'){
-        if (!check_rights(parent_entry, WRITE)) {
-            cout << "Permission denied: cannot create file in directory " << parent_entry.file_name << endl;
-            return -1;
-        }
     }
 
     uint16_t parent_block = parent_entry.first_blk;
     vector<dir_entry> dir;
 
     if(load_dir(parent_block, dir) != 0){
-        cout << "Could not load directory";
+        cout << "Error: Could not load directory";
         return -1;
     }
 
@@ -838,7 +811,7 @@ FS::cat(std::string filepath) {
     for (auto& e : dir) {
         if (file_name == e.file_name) {
             if(e.type == TYPE_DIR){
-                cerr << "Try to use cat with directory";
+                cerr << "Error: Try to use cat with directory";
                 return -1;
             } else {
                 file = e; found = true;
@@ -848,7 +821,7 @@ FS::cat(std::string filepath) {
     }
 
 
-    if (!found) { cout << "File not found\n"; return -1; }
+    if (!found) { cout << "Error: File not found\n"; return -1; }
 
     if (!check_rights(file, READ)) {
         cout << "Permission denied with cat: cannot read file\n";
@@ -862,14 +835,23 @@ FS::cat(std::string filepath) {
     }
 
     while (remaining > 0) {
+        if (blk == FAT_EOF) {
+            cout << "Corrupted file: unexpected end of FAT chain\n";
+            return -1;
+        }
+
         uint8_t buffer[BLOCK_SIZE] = {0};
         if (disk.read(blk, buffer) != 0) {
-            cout << "disk read error\n"; return -1;
+            cout << "Error: disk read error\n"; 
+            return -1;
         }
+
         int to_print = min(remaining, BLOCK_SIZE);
         cout << string((char*)buffer, to_print);
         remaining -= to_print;
-        if (remaining > 0) blk = fat[blk];
+
+        blk = fat[blk]; 
     }
+
     return 0;
 }
