@@ -57,6 +57,8 @@ public:
     void write_dir(const vector<dir_entry>& entries);
     bool check_rights(const dir_entry &e, uint8_t rights);
     int find_nr_of_free_blocks();
+    
+
     int load_dir(uint16_t block_no, vector<dir_entry>& entries);
     int save_dir(uint16_t block_no, vector<dir_entry>& entries);
 

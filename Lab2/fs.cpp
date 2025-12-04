@@ -208,7 +208,7 @@ FS::mkdir(string dirpath) {
     }
 
    //Check the access rights on a directory: WRITE with the parent directory
-    if (parent_entry.file_name[0] != '\0'){
+    if (parent_entry.first_blk != ROOT_BLOCK){
         if (!check_rights(parent_entry, WRITE)) {
             cout << "Permission denied: cannot create file in directory " << parent_entry.file_name << endl;
             return -1;
@@ -251,7 +251,7 @@ FS::mkdir(string dirpath) {
     new_dir_entry.type = TYPE_DIR;
     new_dir_entry.access_rights = READ | WRITE | EXECUTE;
 
-    parent_entries.push_back(new_dir_entry);
+    parent_entries.insert(parent_entries.begin(), new_dir_entry);
 
     res = save_dir(parent_block, parent_entries);
     if (res < 0) {
@@ -267,6 +267,8 @@ FS::mkdir(string dirpath) {
     back.first_blk = parent_entry.first_blk;
     back.type = parent_entry.type;
     back.access_rights = parent_entry.access_rights;
+
+    new_entries.insert(new_entries.begin(), back);
 
     new_entries.push_back(back);
 
@@ -694,7 +696,7 @@ int FS::create(std::string filepath)
         return -1;
     }
 
-    if (parent_entry.file_name[0] != '\0'){
+    if (parent_entry.first_blk != ROOT_BLOCK){
         if (!check_rights(parent_entry, WRITE)) {
             cout << "Insufficient access rights" << parent_entry.file_name << endl;
             return -1;
