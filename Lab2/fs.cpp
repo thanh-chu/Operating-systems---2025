@@ -270,8 +270,6 @@ FS::mkdir(string dirpath) {
 
     new_entries.insert(new_entries.begin(), back);
 
-    new_entries.push_back(back);
-
     res = save_dir(new_block, new_entries);
     if (res < 0) {
         cout << "Error: could not save new directory" << endl;
