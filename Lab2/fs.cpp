@@ -556,7 +556,63 @@ int
 FS::rm(std::string filepath)
 {
     //Thanh: the access rights: WRITE
-    std::cout << "FS::rm(" << filepath << ")\n";
+    //Check if filepath exists.
+    dir_entry parent_entry = {};
+    string filename;
+
+    resolve_path(filepath, parent_entry, filename, true);
+
+    //load directory
+    vector<dir_entry> entries;
+    dir_entry to_remove;
+    load_dir(parent_entry.first_blk, entries);
+    bool found = false;
+    
+    //Hitta rätt entry
+    int counter = 0;
+    for(auto& entry: entries){
+        if(entry.file_name==filename){
+            to_remove = entry;
+            found = true;
+            break;
+        }
+        counter++;
+    }
+    if(found == false){
+        cout << "Entry not found" << endl;
+        return -1;
+    }
+
+    if(!(to_remove.access_rights & WRITE)){
+        cout << "No access to remove" << endl;
+        return -1;
+    }
+    //Om entry är dir måste den vara tom för att få ta bort.
+    vector<dir_entry> to_remove_entries;
+    if(to_remove.type == TYPE_DIR){
+        load_dir(to_remove.first_blk, to_remove_entries);
+        if(to_remove_entries.size()!=0){
+            cout << "Can not remove directory if not empty" << endl;
+            return -1;
+        }
+    }
+
+    //Remove from fat.
+    int16_t curr = to_remove.first_blk;
+    int16_t next;
+    while(fat[curr]!=FAT_EOF){
+        next = fat[curr];
+        fat[curr] = FAT_FREE;
+        curr = next;
+    }
+    fat[curr] = FAT_FREE;
+
+    //Ta bort entry från entries.
+    entries.erase(entries.begin() + counter);
+    //spara dir och fat
+    save_dir(parent_entry.first_blk, entries);
+    save_fat();
+    
     return 0;
 }
 
