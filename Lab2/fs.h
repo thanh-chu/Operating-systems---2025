@@ -35,38 +35,29 @@ private:
     Disk disk;
     // size of a FAT entry is 2 bytes
     int16_t fat[BLOCK_SIZE/2];
-    uint16_t cwd_block = ROOT_BLOCK;     // --- added for person 2 --- nuvarande block
-    string cwd_path = "/";          // --- added for person 2 --- nuvarande path, (Paths to directories are written as ’/dir1/subdir2’, and the root directory should be ’/’ (not ’root’))
+    uint16_t cwd_block = ROOT_BLOCK;     
+    string cwd_path = "/";          //nuvarande path, (Paths to directories are written as ’/dir1/subdir2’, and the root directory should be ’/’ (not ’root’))
 
 public:
     FS();
     ~FS();
 
-/* =====================================================
-       =============== PERSON 1: FAT MANAGER ================
-       ===================================================== */
+
    
-    int find_free_block();                          // --- added ---
-    int alloc_block();                              // --- added ---
-    vector<uint16_t> get_chain(uint16_t first_blk); // --- added ---
-    void free_chain(uint16_t first_blk);            // --- added ---
-    void load_fat();                                // --- added ---
-    void save_fat();                                // --- added ---
+    int find_free_block();                          
+    int alloc_block();                              
+    vector<uint16_t> get_chain(uint16_t first_blk); 
+    void free_chain(uint16_t first_blk);            
+    void load_fat();                                
+    void save_fat();                               
     // formats the disk, i.e., creates an empty file system
     int format();
 
     vector<dir_entry> read_dir();
     void write_dir(const vector<dir_entry>& entries);
     bool check_rights(const dir_entry &e, uint8_t rights);
-    //int find_nr_of_free_blocks();
-
-    /* =====================================================
-       =========== PERSON 2: DIRECTORY MANAGEMENT ===========
-       ===================================================== */
-    
-  // bool load_dir(uint16_t blk, std::vector<dir_entry>& list);    // --- added ---
+    int find_nr_of_free_blocks();
     int load_dir(uint16_t block_no, vector<dir_entry>& entries);
-    // bool write_dir(uint16_t blk, const std::vector<dir_entry>& list); // --- added ---
     int save_dir(uint16_t block_no, vector<dir_entry>& entries);
 
 
@@ -80,12 +71,7 @@ public:
     // pwd prints the full path, i.e., from the root directory, to the current
     // directory, including the current directory name
     int pwd();
-    bool resolve_path(std::string& path, dir_entry& entry, string& new_name, bool throw_not_found = false); // --- added ---
-
-
-    /* =====================================================
-       =========== PERSON 3: FILE MANAGEMENT ==========
-       ===================================================== */
+    bool resolve_path(std::string& path, dir_entry& entry, string& new_name, bool throw_not_found = false); 
 
     // create <filepath> creates a new file on the disk, the data content is
     // written on the following rows (ended with an empty row)
