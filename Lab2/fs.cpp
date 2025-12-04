@@ -4,6 +4,8 @@
 #include <vector>
 #include <cstdint>
 #include <cstring>
+#include <cmath>
+#include <cstdlib>
 
 using namespace std;
 
@@ -617,8 +619,182 @@ FS::rm(std::string filepath)
 int
 FS::append(std::string filepath1, std::string filepath2)
 {
-    //Thanh: the access rights: READ (filepath1), WRITE (filepath2)
-    std::cout << "FS::append(" << filepath1 << "," << filepath2 << ")\n";
+    dir_entry parent_entry1 = {};
+    string filename1;
+
+    if(!resolve_path(filepath1, parent_entry1, filename1, true)){
+        cout << "Can't find filepath1" << endl;
+        return -1;
+    };
+
+    dir_entry parent_entry2 = {};
+    string filename2;
+
+    if(!resolve_path(filepath2, parent_entry2, filename2, true)){
+        cout << "Can't find filepath2" << endl;
+        return -1;
+    };
+
+    //load directory1
+    vector<dir_entry> entries1;
+    load_dir(parent_entry1.first_blk, entries1);
+
+    //load directory2
+    vector<dir_entry> entries2;
+    load_dir(parent_entry2.first_blk, entries2);
+
+    //Hitta rätt entry
+    bool found;
+    dir_entry* file_to_add_to;
+    for(auto& entry: entries2){
+        if(entry.file_name==filename2){
+            file_to_add_to = &entry;
+            found = true;
+            break;
+        }
+    }
+    if(found == false){
+        cout << "Entry not found" << endl;
+        return -1;
+    }
+    
+    dir_entry file_to_add;
+    for(auto& entry: entries1){
+        if(entry.file_name==filename1){
+            file_to_add = entry;
+            found = true;
+            break;
+        }
+    }
+    if(found == false){
+        cout << "Entry not found" << endl;
+        return -1;
+    }
+    
+    //Check access && att det är filer ej mappar
+    if(!(file_to_add.type == TYPE_FILE && file_to_add_to->type == TYPE_FILE)){
+        cout << "Cant append directory" << endl;
+        return -1;
+    }
+    if(!(file_to_add_to->access_rights & WRITE)){
+        cout << "No access to write to file2" << endl;
+        return -1;
+    }
+    if(!(file_to_add.access_rights & READ)){
+        cout << "No access to read file1" << endl;
+        return -1;
+    }
+
+    //Behövs detta?
+    // if (blk == FAT_EOF && remaining > 0) {
+        //     cout << "Corrupted file (no blocks)\n";
+        //     return -1;
+        // }
+        
+    string to_add; //string to add to file 2, consists of content in last block + content of blocks in file 1
+    int nr_of_whole_blocks_filled_by_file2 = floor(file_to_add_to->size/BLOCK_SIZE);
+    //cout << nr_of_whole_blocks_filled_by_file2 << endl;
+    int chars_in_last_block_file_2 = file_to_add_to->size % BLOCK_SIZE;
+    //cout << chars_in_last_block_file_2 << endl;
+    int chars_left_in_last_block_file_2 = BLOCK_SIZE - chars_in_last_block_file_2;
+    //cout << chars_left_in_last_block_file_2 << endl;
+    
+    //adding content of last block of file 2 to string to_add
+    vector<int> allocated_blocks = {};
+    int16_t blk = file_to_add_to->first_blk;
+    int16_t last_blk = blk;
+    while(fat[blk] != EOF){
+        allocated_blocks.push_back(blk);
+        last_blk = fat[blk];
+        blk = fat[blk];
+    }
+    allocated_blocks.push_back(last_blk);
+    uint8_t buffer[BLOCK_SIZE] = {0};
+    if (disk.read(blk, buffer) != 0) {
+        cout << "disk read error\n"; return -1;
+    }
+    to_add += string((char*)buffer, chars_in_last_block_file_2);
+    
+    int remaining_chars = file_to_add.size;
+    blk = file_to_add.first_blk;
+
+    //Adding the contents of file1 to string to_add
+    while (remaining_chars > 0) {
+        uint8_t buffer[BLOCK_SIZE] = {0};
+        if (disk.read(blk, buffer) != 0) {
+            cout << "disk read error\n"; return -1;
+        }
+        int to_print = min(remaining_chars, BLOCK_SIZE);
+        to_add += string((char*)buffer, to_print);
+        remaining_chars -= to_print;
+        if (remaining_chars > 0) blk = fat[blk];
+    }
+        
+    //cout << to_add << endl; //working!
+
+    //Kontrollera att antalet block finns tillgängligt.
+    if(nr_of_whole_blocks_filled_by_file2 > find_nr_of_free_blocks()){
+        cout << "Disk is full" << endl;
+        return -1;
+    }
+
+    vector<uint16_t> chain_blocks_file2 = get_chain(file_to_add_to->first_blk);
+    //cout << "nr of blocks in chain for file2" << chain_blocks_file2.size() << endl;
+
+    uint16_t last_blk_to_add_to = chain_blocks_file2.back();
+
+    int size = to_add.length(); // we check how many bytes needed for the file
+    //cout << "size " << size << endl;
+    div_t needed_blocks = div(size,BLOCK_SIZE); // here we check how many blocks we need
+    int whole_blocks_needed = needed_blocks.quot;
+    if(needed_blocks.rem > 0){
+        whole_blocks_needed++;
+    }
+    //cout << whole_blocks_needed << endl; 
+
+
+    int16_t curr = last_blk_to_add_to; //current last block which we want to overwrite.
+    vector<int16_t> added_blocks = {}; //new blocks including last block of file2
+    added_blocks.push_back(last_blk_to_add_to);
+    
+
+    for (size_t i = 0; i < whole_blocks_needed-1; i++){ //tar bort 1 pga första blocket redan allokerat
+        try {
+            //cout << "alloc" << endl;
+            int new_alloc_block = alloc_block();
+            added_blocks.push_back(new_alloc_block);
+        } catch (const std::runtime_error& e) {
+            cout << "disk is full\n";
+            return -1;
+        }
+
+    }
+    size_t pos = 0;
+
+    //Skriver till block.
+    for (int i = 0; i < added_blocks.size(); i++) {
+        //cout << i << endl;
+        uint8_t buffer[BLOCK_SIZE] = {0};
+
+        size_t bytes = min((size_t)BLOCK_SIZE, to_add.size() - pos);
+        //cout << bytes << endl;
+        memcpy(buffer, &to_add[pos], bytes);
+        disk.write(curr, buffer);
+        pos += bytes;
+
+        if (pos < to_add.size()) {
+            int16_t next = added_blocks[i+1];
+            fat[curr] = next;
+            curr = next;
+        } else {
+            fat[curr] = FAT_EOF;
+        }
+    }
+
+    file_to_add_to->size = file_to_add_to->size + file_to_add.size;
+    save_dir(parent_entry2.first_blk, entries2);
+    save_fat();
+
     return 0;
 }
 
@@ -736,7 +912,12 @@ int FS::create(std::string filepath)
         result += buf + "\n";
     }
     size_t size = result.length(); // we check how many bytes needed for the file
-    size_t needed_blocks = size/BLOCK_SIZE + 1; // here we check how many blocks we need
+    //size_t needed_blocks = (size+1)/BLOCK_SIZE; // here we check how many blocks we need
+    div_t needed_blocks_div = div(size,BLOCK_SIZE); // here we check how many blocks we need
+    int needed_blocks = needed_blocks_div.quot;
+    if(needed_blocks_div.rem > 0){
+        needed_blocks++;
+    }
 
 
     //Thanh: size_t needed_blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
