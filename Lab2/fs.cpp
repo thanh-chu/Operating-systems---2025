@@ -280,7 +280,6 @@ FS::mkdir(string dirpath) {
     return 0;
 }
 
-
 // ls lists the content in the currect directory (files and sub-directories)
 int
 FS::ls() {
@@ -294,33 +293,39 @@ FS::ls() {
     }
 
     //check rights if not root
-    if (cwd_block != ROOT_BLOCK) {
-        vector<dir_entry> parent_entries;
-        dir_entry cwd_entry{};
+    dir_entry parent;
+    bool found_parent = false;
+    for(auto& temp:entries){
+        if (strcmp(temp.file_name, "..") == 0){
+            parent = temp;
+            found_parent = true;
+            break;
+        }
+    }
 
-        if (load_dir(ROOT_BLOCK, parent_entries) != 0) {
-                cout << "Error: cannot load root directory" << endl;
-                return -1;
-            }
+    if(!found_parent){
+        cout << "Error: not found parent directory.\n";
+        return -1;
+    }
 
-            bool found = false;
-            for (auto &e : parent_entries) {
-                if (e.first_blk == cwd_block) {
-                    cwd_entry = e;
-                    found = true;
-                    break;
-                }
-            }
+    dir_entry cwd_entry;
+    bool found = false;
+    for(auto& temp: parent_entries){
+        if(temp.firsk_blk = cwd_block){
+            cwd_entry = temp;
+            found = true;
+            break;
+        }
+    }
 
-            if (!found) {
-                cout << "Error: cwd entry not found" << endl;
-                return -1;
-            }
+    if (!found) {
+        cout << "Error: cwd entry not found" << endl;
+        return -1;
+    }
 
-            if (!check_rights(cwd_entry, READ)) {
-                cout << "Error: permission denied to read current directory" << endl;
-                return -1;
-            }
+    if (!check_rights(cwd_entry, READ)) {
+        cout << "Error: permission denied to read current directory" << endl;
+        return -1;
     }
 
     cout << "name" << "\t" << "type"  << "\t" << "accessrights"  << "\t" <<"size" << endl;
@@ -538,7 +543,63 @@ int
 FS::rm(std::string filepath)
 {
     //Thanh: the access rights: WRITE
-    std::cout << "FS::rm(" << filepath << ")\n";
+    //Check if filepath exists.
+    dir_entry parent_entry = {};
+    string filename;
+
+    resolve_path(filepath, parent_entry, filename, true);
+
+    //load directory
+    vector<dir_entry> entries;
+    dir_entry to_remove;
+    load_dir(parent_entry.first_blk, entries);
+    bool found = false;
+    
+    //Hitta rätt entry
+    int counter = 0;
+    for(auto& entry: entries){
+        if(entry.file_name==filename){
+            to_remove = entry;
+            found = true;
+            break;
+        }
+        counter++;
+    }
+    if(found == false){
+        cout << "Entry not found" << endl;
+        return -1;
+    }
+
+    if(!(to_remove.access_rights & WRITE)){
+        cout << "No access to remove" << endl;
+        return -1;
+    }
+    //Om entry är dir måste den vara tom för att få ta bort.
+    vector<dir_entry> to_remove_entries;
+    if(to_remove.type == TYPE_DIR){
+        load_dir(to_remove.first_blk, to_remove_entries);
+        if(to_remove_entries.size()!=0){
+            cout << "Can not remove directory if not empty" << endl;
+            return -1;
+        }
+    }
+
+    //Remove from fat.
+    int16_t curr = to_remove.first_blk;
+    int16_t next;
+    while(fat[curr]!=FAT_EOF){
+        next = fat[curr];
+        fat[curr] = FAT_FREE;
+        curr = next;
+    }
+    fat[curr] = FAT_FREE;
+
+    //Ta bort entry från entries.
+    entries.erase(entries.begin() + counter);
+    //spara dir och fat
+    save_dir(parent_entry.first_blk, entries);
+    save_fat();
+    
     return 0;
 }
 
@@ -736,13 +797,6 @@ FS::cat(std::string filepath) {
         cout << "Error: File not found from path\n";
         return -1;
     }
-
-    // if (parent_entry.file_name[0] != '\0'){
-    //     if (!check_rights(parent_entry, WRITE)) {
-    //         cout << "Permission denied: cannot create file in directory " << parent_entry.file_name << endl;
-    //         return -1;
-    //     }
-    // }
 
     uint16_t parent_block = parent_entry.first_blk;
     vector<dir_entry> dir;
