@@ -293,47 +293,50 @@ FS::ls() {
     }
 
     //check rights if not root
-    dir_entry parent;
-    bool found_parent = false;
-    for(auto& temp:entries){
-        if (strcmp(temp.file_name, "..") == 0){
-            parent = temp;
-            found_parent = true;
-            break;
+    if(cwd_block != ROOT_BLOCK){
+        dir_entry parent;
+        bool found_parent = false;
+        for(auto& temp:entries){
+            if (strcmp(temp.file_name, "..") == 0){
+                parent = temp;
+                found_parent = true;
+                break;
+            }
         }
-    }
 
-    if(!found_parent){
-        cout << "Error: not found parent directory.\n";
-        return -1;
-    }
-
-    vector<dir_entry> parent_entries;
-    if (load_dir(parent.first_blk, parent_entries) != 0) {
-        cout << "Error: cannot load parent directory" << endl;
-        return -1;
-    }
-
-    dir_entry cwd_entry;
-    bool found = false;
-    for(auto& temp: parent_entries){
-        if(temp.first_blk == cwd_block){
-            cwd_entry = temp;
-            found = true;
-            break;
+        if(!found_parent){
+            cout << "Error: not found parent directory.\n";
+            return -1;
         }
-    }
 
-    if (!found) {
-        cout << "Error: cwd entry not found" << endl;
-        return -1;
-    }
+        vector<dir_entry> parent_entries;
+        if (load_dir(parent.first_blk, parent_entries) != 0) {
+            cout << "Error: cannot load parent directory" << endl;
+            return -1;
+        }
 
-    if (!check_rights(cwd_entry, READ)) {
-        cout << "Error: permission denied to read current directory" << endl;
-        return -1;
-    }
+        dir_entry cwd_entry;
+        bool found = false;
+        for(auto& temp: parent_entries){
+            if(temp.first_blk == cwd_block){
+                cwd_entry = temp;
+                found = true;
+                break;
+            }
+        }
 
+        if (!found) {
+            cout << "Error: cwd entry not found" << endl;
+            return -1;
+        }
+
+        if (!check_rights(cwd_entry, READ)) {
+            cout << "Error: permission denied to read current directory" << endl;
+            return -1;
+        }
+
+    }
+    
     cout << "name" << "\t" << "type"  << "\t" << "accessrights"  << "\t" <<"size" << endl;
     for (size_t i = 0; i < entries.size() ; i++) {
         string type = "";
