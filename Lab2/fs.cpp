@@ -308,10 +308,16 @@ FS::ls() {
         return -1;
     }
 
+    vector<dir_entry> parent_entries;
+    if (load_dir(parent.first_blk, parent_entries) != 0) {
+        cout << "Error: cannot load parent directory" << endl;
+        return -1;
+    }
+
     dir_entry cwd_entry;
     bool found = false;
     for(auto& temp: parent_entries){
-        if(temp.firsk_blk = cwd_block){
+        if(temp.first_blk == cwd_block){
             cwd_entry = temp;
             found = true;
             break;
