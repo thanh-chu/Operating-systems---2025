@@ -533,8 +533,139 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
 int
 FS::cp(std::string sourcepath, std::string destpath)
 {
+    //sourcepath
+    dir_entry parent_entry_source = {};
+    string filename_source;
+
+    resolve_path(sourcepath, parent_entry_source, filename_source, true);
+
+    //load directory
+    vector<dir_entry> entries_source;
+    dir_entry to_move;
+    load_dir(parent_entry_source.first_blk, entries_source);
+    bool found = false;
+    
+    //Hitta rätt entry
+    int counter = 0;
+    for(auto& entry: entries_source){
+        if(entry.file_name==filename_source){
+            to_move = entry;
+            found = true;
+            break;
+        }
+        counter++;
+    }
+    if(found == false){
+        cout << "Source not found" << endl;
+        return -1;
+    }
+
+    if(!(to_move.access_rights & READ)){
+        cout << "No access to copy sourcefile" << endl;
+        return -1;
+    }
+
+    //destpath
+    dir_entry parent_entry_dest = {};
+    string filename_dest;
+
+    resolve_path(destpath, parent_entry_dest, filename_dest, true);
+
+    //load directory for parent of dest directory to find dest directory
+    vector<dir_entry> entries_dest;
+    dir_entry dest_entry;
+    load_dir(parent_entry_dest.first_blk, entries_dest);
+    found = false;
+    
+    //Hitta rätt entry
+    for(auto& entry: entries_dest){
+        if(entry.file_name==filename_dest){
+            dest_entry = entry;
+            found = true;
+            break;
+        }
+    }
+    
+    if(found == false){
+        cout << "dest not found" << endl;
+        return -1;
+    }
+
+    if((to_move.type != TYPE_FILE)){
+        cout << "Can not copy directory, has to be file" << endl;
+        return -1;
+    }
+
+    vector<uint16_t> source_chain = get_chain(to_move.first_blk);
+
+    //load directory for dest directory
+    vector<dir_entry> new_entries;
+
+    load_dir(dest_entry.first_blk, new_entries);
+
+    if(!(dest_entry.access_rights & WRITE)){
+        cout << "No access to move" << endl;
+        return -1;
+    }
+
+    if(!(dest_entry.type == TYPE_DIR)){
+        cout << "Can not copy to file, has to be directory" << endl;
+        return -1;
+    }
+
+    if(source_chain.size()> find_nr_of_free_blocks()){
+        cout << "Not enough free space to copy file" << endl;
+        return -1;
+    }
+
+    vector<uint16_t> new_blocks = {};
+    //Få fram hur många block filen upptar
+    //Allokera lika många nya block för kopian
+    for(int i = 0; i < source_chain.size(); i++){
+        try{
+            cout << "alloc" << endl;
+            int new_alloc_block = alloc_block();
+            new_blocks.push_back(new_alloc_block);
+        } catch (const std::runtime_error& e) {
+            cout << "disk is full\n";
+            return -1;
+        }
+    }
+    
+    int16_t curr = new_blocks[0];
+    size_t bytes = to_move.size;
+    
+    //Läs från filen och skriv till nya blocken.
+    for (size_t i = 0; i < new_blocks.size(); i++) {
+        uint8_t buffer[BLOCK_SIZE] = {0};
+        if (disk.read(source_chain[i], buffer) != 0) {
+            cout << "disk read error\n"; return -1;
+        }
+        disk.write(curr, buffer);
+        cout << "write" << endl;
+        if(i == new_blocks.size()-1){
+            fat[curr] = FAT_EOF;
+        } else {
+            int16_t next = new_blocks[i+1];
+            fat[curr] = next;
+            curr = next;
+        }
+    }
+
+    //Skapa ny entry i dest directory
+    // dir_entry new_entry = {};
+    // new_entry.type = TYPE_FILE;
+    // new_entry.access_rights = to_move.access_rights;
+    // new_entry.size = to_move.size;
+    to_move.first_blk = new_blocks[0];
+    //to_move.file_name = to_move.filename + "_copy"
+    //Spara destinationsdirectory och fat.
+
+    new_entries.push_back(to_move);
+    save_dir(dest_entry.first_blk, new_entries);
+    save_fat();
     //Thanh: the access rights: READ (source), WRITE (dest dir)
-    std::cout << "FS::cp(" << sourcepath << "," << destpath << ")\n";
+    //std::cout << "FS::cp(" << sourcepath << "," << destpath << ")\n";
     return 0;
 }
 
