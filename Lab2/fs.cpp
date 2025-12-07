@@ -569,12 +569,20 @@ FS::cp(std::string sourcepath, std::string destpath)
     dir_entry parent_entry_dest = {};
     string filename_dest;
 
-    resolve_path(destpath, parent_entry_dest, filename_dest, true);
+    bool destExist = resolve_path(destpath, parent_entry_dest, filename_dest, true);
+
+    if((to_move.type != TYPE_FILE)){
+        cout << "Can not copy directory, has to be file" << endl;
+        return -1;
+    }
+
+    vector<uint16_t> source_chain = get_chain(to_move.first_blk);
 
     //load directory for parent of dest directory to find dest directory
     vector<dir_entry> entries_dest;
     dir_entry dest_entry;
     load_dir(parent_entry_dest.first_blk, entries_dest);
+    //cout << parent_entry_dest.file_name << endl;
     found = false;
     
     //Hitta rätt entry
@@ -586,33 +594,25 @@ FS::cp(std::string sourcepath, std::string destpath)
         }
     }
     
-    if(found == false){
-        cout << "dest not found" << endl;
-        return -1;
-    }
-
-    if((to_move.type != TYPE_FILE)){
-        cout << "Can not copy directory, has to be file" << endl;
-        return -1;
-    }
-
-    vector<uint16_t> source_chain = get_chain(to_move.first_blk);
-
-    //load directory for dest directory
+    //Nytt här: 7/12:
     vector<dir_entry> new_entries;
-
-    load_dir(dest_entry.first_blk, new_entries);
-
-    if(!(dest_entry.access_rights & WRITE)){
+    if(found == true){
+        if(!(dest_entry.type == TYPE_DIR)){
+            cout << "File already exists" << endl;
+            return -1;
+        }
+        //load directory for dest directory
+        load_dir(dest_entry.first_blk, new_entries);
+    
+    } else {
+        dest_entry = parent_entry_dest;
+        new_entries = entries_dest;
+    }
+    if(!(dest_entry.access_rights & WRITE)&&!(dest_entry.first_blk==ROOT_BLOCK)){
         cout << "No access to move" << endl;
         return -1;
     }
-
-    if(!(dest_entry.type == TYPE_DIR)){
-        cout << "Can not copy to file, has to be directory" << endl;
-        return -1;
-    }
-
+    
     if(source_chain.size()> find_nr_of_free_blocks()){
         cout << "Not enough free space to copy file" << endl;
         return -1;
@@ -623,7 +623,7 @@ FS::cp(std::string sourcepath, std::string destpath)
     //Allokera lika många nya block för kopian
     for(int i = 0; i < source_chain.size(); i++){
         try{
-            cout << "alloc" << endl;
+            //cout << "alloc" << endl;
             int new_alloc_block = alloc_block();
             new_blocks.push_back(new_alloc_block);
         } catch (const std::runtime_error& e) {
@@ -642,7 +642,7 @@ FS::cp(std::string sourcepath, std::string destpath)
             cout << "disk read error\n"; return -1;
         }
         disk.write(curr, buffer);
-        cout << "write" << endl;
+        //cout << "write" << endl;
         if(i == new_blocks.size()-1){
             fat[curr] = FAT_EOF;
         } else {
@@ -660,7 +660,15 @@ FS::cp(std::string sourcepath, std::string destpath)
     to_move.first_blk = new_blocks[0];
     //to_move.file_name = to_move.filename + "_copy"
     //Spara destinationsdirectory och fat.
-
+    if(found == false){
+        //Ändra filename på to_move.
+        int n = filename_dest.length();
+        if(n >= 55){
+            cout << "Filename too long" << endl;
+            return -1;
+        }
+        strcpy(to_move.file_name, filename_dest.c_str());
+    }
     new_entries.push_back(to_move);
     save_dir(dest_entry.first_blk, new_entries);
     save_fat();
@@ -728,32 +736,70 @@ FS::mv(std::string sourcepath, std::string destpath)
             break;
         }
     }
-    
-    if(found == false){
-        cout << "dest not found" << endl;
-        return -1;
+    vector<dir_entry> new_entries;
+    if(found == true){
+        if(!(dest_entry.type == TYPE_DIR)){
+            cout << "File already exists" << endl;
+            return -1;
+        }
+        //load_dir(dest_entry.first_blk, new_entries);
+        //load directory for dest directory
+        //load_dir(dest_entry.first_blk, new_entries);
+        load_dir(dest_entry.first_blk, new_entries);
+    } else {
+        dest_entry = parent_entry_dest;
+        new_entries = entries_dest;
     }
+    // if(found == false){
+    //     cout << "dest not found" << endl;
+    //     return -1;
+    // }
 
     //load directory for dest directory
-    vector<dir_entry> new_entries;
 
-    load_dir(dest_entry.first_blk, new_entries);
-
-    if(!(dest_entry.access_rights & WRITE)){
+    if(!(dest_entry.access_rights & WRITE)&&!(dest_entry.first_blk==ROOT_BLOCK)){
         cout << "No access to move" << endl;
         return -1;
     }
 
-    if(!(dest_entry.type == TYPE_DIR)){
-        cout << "Can not move to file, has to be directory" << endl;
-        return -1;
+    // if(!(dest_entry.type == TYPE_DIR)){
+    //     cout << "Can not move to file, has to be directory" << endl;
+    //     return -1;
+    // }
+    if(found == false){
+        //Ändra filename på to_move.
+        int n = filename_dest.length();
+        if(n >= 55){
+            cout << "Filename too long" << endl;
+            return -1;
+        }
+        strcpy(to_move.file_name, filename_dest.c_str());
+    }
+    if(dest_entry.first_blk==parent_entry_source.first_blk){
+        //cout << "In same folder" << endl;
+        // new_entries.push_back(to_move);
+        // new_entries.erase(new_entries.begin() + counter);
+
+        for (int i = 0; i<new_entries.size(); i++)
+        {
+            if (new_entries[i].first_blk == to_move.first_blk)
+            {
+                new_entries[i] = to_move;
+                break;
+            }
+        }
+
+
+        save_dir(dest_entry.first_blk, new_entries);
+    }
+    else{
+        //cout << "not in same folder" << endl;
+        entries_source.erase(entries_source.begin() + counter);
+        new_entries.push_back(to_move);
+        save_dir(parent_entry_source.first_blk, entries_source);
+        save_dir(dest_entry.first_blk, new_entries);
     }
 
-    new_entries.push_back(to_move);
-    entries_source.erase(entries_source.begin() + counter);
-
-    save_dir(dest_entry.first_blk, new_entries);
-    save_dir(parent_entry_source.first_blk, entries_source);
 
     return 0;
 }
@@ -1120,13 +1166,18 @@ int FS::create(std::string filepath)
             break;
         result += buf + "\n";
     }
+    int needed_blocks;
     size_t size = result.length(); // we check how many bytes needed for the file
-    //size_t needed_blocks = (size+1)/BLOCK_SIZE; // here we check how many blocks we need
-    div_t needed_blocks_div = div(size,BLOCK_SIZE); // here we check how many blocks we need
-    int needed_blocks = needed_blocks_div.quot;
-    if(needed_blocks_div.rem > 0){
-        needed_blocks++;
-    }
+    if(size == 0){
+        needed_blocks = 1;
+    } else {
+        //size_t needed_blocks = (size+1)/BLOCK_SIZE; // here we check how many blocks we need
+        div_t needed_blocks_div = div(size,BLOCK_SIZE); // here we check how many blocks we need
+        needed_blocks = needed_blocks_div.quot;
+        if(needed_blocks_div.rem > 0){
+            needed_blocks++;
+        }
+    }   
 
 
     //Thanh: size_t needed_blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -1139,41 +1190,39 @@ int FS::create(std::string filepath)
 
 
     vector<int> allocated_blocks = {};
-    if (!result.empty()) {
-        if(needed_blocks > static_cast<size_t>(find_nr_of_free_blocks())){
-            std::cout << "Error: Disk is full" << std::endl;
+    if(needed_blocks > static_cast<size_t>(find_nr_of_free_blocks())){
+        std::cout << "Error: Disk is full" << std::endl;
+        return -1;
+    }
+    for (size_t i = 0; i < needed_blocks; i++){
+        try {
+            int new_alloc_block = alloc_block();
+            allocated_blocks.push_back(new_alloc_block);
+        } catch (const std::runtime_error& e) {
+            cout << "Error: disk is full\n";
             return -1;
         }
-        for (size_t i = 0; i < needed_blocks; i++){
-            try {
-                int new_alloc_block = alloc_block();
-                allocated_blocks.push_back(new_alloc_block);
-            } catch (const std::runtime_error& e) {
-                cout << "Error: disk is full\n";
-                return -1;
-            }
 
-        }
-        entry.first_blk = allocated_blocks[0];
+    }
+    entry.first_blk = allocated_blocks[0];
 
-        int16_t curr = allocated_blocks[0];
-        size_t pos = 0;
+    int16_t curr = allocated_blocks[0];
+    size_t pos = 0;
 
-        for (size_t i = 0; i < needed_blocks; i++) {
-            uint8_t buffer[BLOCK_SIZE] = {0};
+    for (size_t i = 0; i < needed_blocks; i++) {
+        uint8_t buffer[BLOCK_SIZE] = {0};
 
-            size_t bytes = min((size_t)BLOCK_SIZE, result.size() - pos);
-            memcpy(buffer, &result[pos], bytes);
-            disk.write(curr, buffer);
-            pos += bytes;
+        size_t bytes = min((size_t)BLOCK_SIZE, result.size() - pos);
+        memcpy(buffer, &result[pos], bytes);
+        disk.write(curr, buffer);
+        pos += bytes;
 
-            if (pos < result.size()) {
-                int16_t next = allocated_blocks[i+1];
-                fat[curr] = next;
-                curr = next;
-            } else {
-                fat[curr] = FAT_EOF;
-            }
+        if (pos < result.size()) {
+            int16_t next = allocated_blocks[i+1];
+            fat[curr] = next;
+            curr = next;
+        } else {
+            fat[curr] = FAT_EOF;
         }
     }
     save_fat();
