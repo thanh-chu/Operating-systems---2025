@@ -345,8 +345,8 @@ FS::ls() {
     cout << "name" << "\t" << "type"  << "\t" << "accessrights"  << "\t" <<"size" << endl;
     for (size_t i = 0; i < entries.size() ; i++) {
         string type = "";
-        //Thanh: run test4 with this so all file/directory has name ".." not show when run ls
-        //if(strcmp(entries[i].file_name, "..") == 0) continue;
+        //run test4 with this so all file/directory has name ".." not show when run ls
+        if(strcmp(entries[i].file_name, "..") == 0) continue;
         if(entries[i].type == TYPE_DIR){
             type = "dir";
         }else{
