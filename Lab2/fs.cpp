@@ -34,7 +34,7 @@ FS::~FS()
 }
 
 
-//check all FAT and return the first free block from the first block, help-funtion for get_chain
+//check all FAT and return the first free block, help-funtion
 int
 FS::find_free_block() {
     for(int i = 2; i < (BLOCK_SIZE/2); i++){ //formatting the disk, i.e., initializing the FAT and marking all blocks as free (except block 0 (the root directory) and block 1 (the FAT))
@@ -126,6 +126,12 @@ int
 FS::format()
 {
     uint8_t empty_block[BLOCK_SIZE] = {0};
+
+    disk.write(ROOT_BLOCK, empty_block);
+    for(int i = 2; i < BLOCK_SIZE/2; i++){
+        disk.write(i, empty_block);
+    }
+
     for(int i = 0; i < BLOCK_SIZE/2; i++){
         if(i == ROOT_BLOCK || i == FAT_BLOCK){
             fat[i] = FAT_EOF;
@@ -134,10 +140,9 @@ FS::format()
         }
     }
     save_fat();
-    disk.write(ROOT_BLOCK, empty_block);
-    for(int i = 2; i < BLOCK_SIZE/2; i++){
-        disk.write(i, empty_block);
-    }
+    
+    cwd_block = ROOT_BLOCK;
+    cwd_path = "/";
     return 0;
 }
 
@@ -190,8 +195,6 @@ int FS::save_dir(uint16_t block_no, vector<dir_entry>& entries) {
 // in the current directory
 int
 FS::mkdir(string dirpath) {
-
-    
     if (dirpath.empty()) {
         cout << "Error: dirpath is not valid" << endl;
         return -1;
@@ -267,7 +270,7 @@ FS::mkdir(string dirpath) {
     strncpy(back.file_name, "..", sizeof(back.file_name) - 1);
     back.size = parent_entry.size;
     back.first_blk = parent_entry.first_blk;
-    back.type = parent_entry.type;
+    back.type = TYPE_DIR;
     back.access_rights = parent_entry.access_rights;
 
     new_entries.insert(new_entries.begin(), back);
@@ -519,9 +522,11 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
                 continue;
              }
             }
-            if (throw_not_found == true && found_map == false){
-                return false;
-            }
+            if (!found_map) {
+                if (name != parts.back() || throw_not_found) {
+                    return false;
+                }
+            } 
         }
     }
     return true;
@@ -672,7 +677,6 @@ FS::cp(std::string sourcepath, std::string destpath)
     new_entries.push_back(to_move);
     save_dir(dest_entry.first_blk, new_entries);
     save_fat();
-    //Thanh: the access rights: READ (source), WRITE (dest dir)
     //std::cout << "FS::cp(" << sourcepath << "," << destpath << ")\n";
     return 0;
 }
@@ -844,21 +848,24 @@ FS::rm(std::string filepath)
     vector<dir_entry> to_remove_entries;
     if(to_remove.type == TYPE_DIR){
         load_dir(to_remove.first_blk, to_remove_entries);
-        if(to_remove_entries.size()!=0){
+        bool only_parent = (to_remove_entries.size() == 1 &&
+                        strcmp(to_remove_entries[0].file_name, "..") == 0);
+
+        if (!only_parent) {
             cout << "Can not remove directory if not empty" << endl;
             return -1;
         }
     }
 
-    //Remove from fat.
-    int16_t curr = to_remove.first_blk;
-    int16_t next;
-    while(fat[curr]!=FAT_EOF){
-        next = fat[curr];
-        fat[curr] = FAT_FREE;
-        curr = next;
-    }
-    fat[curr] = FAT_FREE;
+    free_chain(to_remove.first_blk);
+    // int16_t curr = to_remove.first_blk;
+    // int16_t next;
+    // while(fat[curr]!=FAT_EOF){
+    //     next = fat[curr];
+    //     fat[curr] = FAT_FREE;
+    //     curr = next;
+    // }
+    // fat[curr] = FAT_FREE;
 
     //Ta bort entry från entries.
     entries.erase(entries.begin() + counter);
