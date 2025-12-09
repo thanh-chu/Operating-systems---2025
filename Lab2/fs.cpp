@@ -538,19 +538,19 @@ bool FS::resolve_path(string& path_in, dir_entry& entry, string& new_name, bool 
 int
 FS::cp(std::string sourcepath, std::string destpath)
 {
-    //sourcepath
+    //retrieving info sourcepath
     dir_entry parent_entry_source = {};
     string filename_source;
 
     resolve_path(sourcepath, parent_entry_source, filename_source, true);
 
-    //load directory
+    //load directory source
     vector<dir_entry> entries_source;
     dir_entry to_move;
     load_dir(parent_entry_source.first_blk, entries_source);
     bool found = false;
     
-    //Hitta rätt entry
+    //find corresponding dir_entry
     int counter = 0;
     for(auto& entry: entries_source){
         if(entry.file_name==filename_source){
@@ -560,6 +560,8 @@ FS::cp(std::string sourcepath, std::string destpath)
         }
         counter++;
     }
+
+    //Checking rights and type of source dir_entry
     if(found == false){
         cout << "Source not found" << endl;
         return -1;
@@ -569,28 +571,26 @@ FS::cp(std::string sourcepath, std::string destpath)
         cout << "No access to copy sourcefile" << endl;
         return -1;
     }
-
-    //destpath
-    dir_entry parent_entry_dest = {};
-    string filename_dest;
-
-    bool destExist = resolve_path(destpath, parent_entry_dest, filename_dest, true);
-
+    
     if((to_move.type != TYPE_FILE)){
         cout << "Can not copy directory, has to be file" << endl;
         return -1;
     }
 
+    dir_entry parent_entry_dest = {};
+    string filename_dest;
+
+    //retrieving info destpath
+    bool destExist = resolve_path(destpath, parent_entry_dest, filename_dest, true);
     vector<uint16_t> source_chain = get_chain(to_move.first_blk);
 
     //load directory for parent of dest directory to find dest directory
     vector<dir_entry> entries_dest;
     dir_entry dest_entry;
     load_dir(parent_entry_dest.first_blk, entries_dest);
-    //cout << parent_entry_dest.file_name << endl;
     found = false;
     
-    //Hitta rätt entry
+    //Find corresponding dir_entry to destpath
     for(auto& entry: entries_dest){
         if(entry.file_name==filename_dest){
             dest_entry = entry;
@@ -599,7 +599,7 @@ FS::cp(std::string sourcepath, std::string destpath)
         }
     }
     
-    //Nytt här: 7/12:
+    //Checking if dir_entry of destpath is directory, in that case need to load that directory
     vector<dir_entry> new_entries;
     if(found == true){
         if(!(dest_entry.type == TYPE_DIR)){
@@ -613,6 +613,8 @@ FS::cp(std::string sourcepath, std::string destpath)
         dest_entry = parent_entry_dest;
         new_entries = entries_dest;
     }
+
+    //Checking rights and enough nr of free blocks
     if(!(dest_entry.access_rights & WRITE)&&!(dest_entry.first_blk==ROOT_BLOCK)){
         cout << "No access to move" << endl;
         return -1;
@@ -623,12 +625,10 @@ FS::cp(std::string sourcepath, std::string destpath)
         return -1;
     }
 
+    //Allocate new blocks for copied file, as many as in the sourcefile
     vector<uint16_t> new_blocks = {};
-    //Få fram hur många block filen upptar
-    //Allokera lika många nya block för kopian
     for(int i = 0; i < source_chain.size(); i++){
         try{
-            //cout << "alloc" << endl;
             int new_alloc_block = alloc_block();
             new_blocks.push_back(new_alloc_block);
         } catch (const std::runtime_error& e) {
@@ -640,14 +640,14 @@ FS::cp(std::string sourcepath, std::string destpath)
     int16_t curr = new_blocks[0];
     size_t bytes = to_move.size;
     
-    //Läs från filen och skriv till nya blocken.
+    //Read from sourcefile and write to destfile
     for (size_t i = 0; i < new_blocks.size(); i++) {
         uint8_t buffer[BLOCK_SIZE] = {0};
         if (disk.read(source_chain[i], buffer) != 0) {
             cout << "disk read error\n"; return -1;
         }
         disk.write(curr, buffer);
-        //cout << "write" << endl;
+        //adding new blocks to FAT
         if(i == new_blocks.size()-1){
             fat[curr] = FAT_EOF;
         } else {
@@ -657,16 +657,11 @@ FS::cp(std::string sourcepath, std::string destpath)
         }
     }
 
-    //Skapa ny entry i dest directory
-    // dir_entry new_entry = {};
-    // new_entry.type = TYPE_FILE;
-    // new_entry.access_rights = to_move.access_rights;
-    // new_entry.size = to_move.size;
+    //Saving new dir_entry and setting filename if a new file is created.
     to_move.first_blk = new_blocks[0];
-    //to_move.file_name = to_move.filename + "_copy"
-    //Spara destinationsdirectory och fat.
+
+    //Checking new filename is not too long
     if(found == false){
-        //Ändra filename på to_move.
         int n = filename_dest.length();
         if(n >= 55){
             cout << "Filename too long" << endl;
@@ -674,10 +669,11 @@ FS::cp(std::string sourcepath, std::string destpath)
         }
         strcpy(to_move.file_name, filename_dest.c_str());
     }
+
+    //Adding new dir_entry for copied file. Saving directory and FAT.
     new_entries.push_back(to_move);
     save_dir(dest_entry.first_blk, new_entries);
     save_fat();
-    //std::cout << "FS::cp(" << sourcepath << "," << destpath << ")\n";
     return 0;
 }
 
@@ -686,12 +682,10 @@ FS::cp(std::string sourcepath, std::string destpath)
 int
 FS::mv(std::string sourcepath, std::string destpath)
 {
-    //access rights: WRITE
-    //på båda??
-    //sourcepath
     dir_entry parent_entry_source = {};
     string filename_source;
 
+    //retrieving info sourcepath
     resolve_path(sourcepath, parent_entry_source, filename_source, true);
 
     //load directory
@@ -700,7 +694,7 @@ FS::mv(std::string sourcepath, std::string destpath)
     load_dir(parent_entry_source.first_blk, entries_source);
     bool found = false;
     
-    //Hitta rätt entry
+    //Find dir_entry corresponding to sourcepath
     int counter = 0;
     for(auto& entry: entries_source){
         if(entry.file_name==filename_source){
@@ -710,6 +704,8 @@ FS::mv(std::string sourcepath, std::string destpath)
         }
         counter++;
     }
+
+    //Checking rights and if source is found.
     if(found == false){
         cout << "Source not found" << endl;
         return -1;
@@ -720,10 +716,10 @@ FS::mv(std::string sourcepath, std::string destpath)
         return -1;
     }
 
-    //destpath
     dir_entry parent_entry_dest = {};
     string filename_dest;
 
+    //Retrieving information destpath
     resolve_path(destpath, parent_entry_dest, filename_dest, true);
 
     //load directory for parent of dest directory to find dest directory
@@ -732,7 +728,7 @@ FS::mv(std::string sourcepath, std::string destpath)
     load_dir(parent_entry_dest.first_blk, entries_dest);
     found = false;
     
-    //Hitta rätt entry
+    //Find dir_entry corresponding to destpath
     for(auto& entry: entries_dest){
         if(entry.file_name==filename_dest){
             dest_entry = entry;
@@ -741,37 +737,26 @@ FS::mv(std::string sourcepath, std::string destpath)
         }
     }
     vector<dir_entry> new_entries;
+    //Checking if dir_entry of destpath is directory, in that case need to load that directory 
     if(found == true){
         if(!(dest_entry.type == TYPE_DIR)){
             cout << "File already exists" << endl;
             return -1;
         }
-        //load_dir(dest_entry.first_blk, new_entries);
-        //load directory for dest directory
-        //load_dir(dest_entry.first_blk, new_entries);
         load_dir(dest_entry.first_blk, new_entries);
     } else {
         dest_entry = parent_entry_dest;
         new_entries = entries_dest;
     }
-    // if(found == false){
-    //     cout << "dest not found" << endl;
-    //     return -1;
-    // }
 
-    //load directory for dest directory
-
+    //Checking rights destpath dir_entry
     if(!(dest_entry.access_rights & WRITE)&&!(dest_entry.first_blk==ROOT_BLOCK)){
         cout << "No access to move" << endl;
         return -1;
     }
 
-    // if(!(dest_entry.type == TYPE_DIR)){
-    //     cout << "Can not move to file, has to be directory" << endl;
-    //     return -1;
-    // }
+    //If dir_entry of destpath is not found, set new filename to filename in destpath
     if(found == false){
-        //Ändra filename på to_move.
         int n = filename_dest.length();
         if(n >= 55){
             cout << "Filename too long" << endl;
@@ -779,11 +764,10 @@ FS::mv(std::string sourcepath, std::string destpath)
         }
         strcpy(to_move.file_name, filename_dest.c_str());
     }
-    if(dest_entry.first_blk==parent_entry_source.first_blk){
-        //cout << "In same folder" << endl;
-        // new_entries.push_back(to_move);
-        // new_entries.erase(new_entries.begin() + counter);
 
+    //Checking if sourcepath and destpath in same folder
+    if(dest_entry.first_blk==parent_entry_source.first_blk){
+        //If in same folder, add to array of dir_entry
         for (int i = 0; i<new_entries.size(); i++)
         {
             if (new_entries[i].first_blk == to_move.first_blk)
@@ -792,19 +776,15 @@ FS::mv(std::string sourcepath, std::string destpath)
                 break;
             }
         }
-
-
         save_dir(dest_entry.first_blk, new_entries);
     }
     else{
-        //cout << "not in same folder" << endl;
+        //If not in same folder erase file in sourcepath and push it as entry in destfolder.
         entries_source.erase(entries_source.begin() + counter);
         new_entries.push_back(to_move);
         save_dir(parent_entry_source.first_blk, entries_source);
         save_dir(dest_entry.first_blk, new_entries);
     }
-
-
     return 0;
 }
 
@@ -812,11 +792,11 @@ FS::mv(std::string sourcepath, std::string destpath)
 int
 FS::rm(std::string filepath)
 {
-    //Thanh: the access rights: WRITE
     //Check if filepath exists.
     dir_entry parent_entry = {};
     string filename;
 
+    //retrieving information filepath
     resolve_path(filepath, parent_entry, filename, true);
 
     //load directory
@@ -825,7 +805,7 @@ FS::rm(std::string filepath)
     load_dir(parent_entry.first_blk, entries);
     bool found = false;
     
-    //Hitta rätt entry
+    //Find corresponding dir_entry to filepath
     int counter = 0;
     for(auto& entry: entries){
         if(entry.file_name==filename){
@@ -840,36 +820,31 @@ FS::rm(std::string filepath)
         return -1;
     }
 
+    //Check accessrights
     if(!(to_remove.access_rights & WRITE)){
         cout << "No access to remove" << endl;
         return -1;
     }
-    //Om entry är dir måste den vara tom för att få ta bort.
+
+    //If entry is dir, need to be empty to remove.
     vector<dir_entry> to_remove_entries;
     if(to_remove.type == TYPE_DIR){
         load_dir(to_remove.first_blk, to_remove_entries);
         bool only_parent = (to_remove_entries.size() == 1 &&
                         strcmp(to_remove_entries[0].file_name, "..") == 0);
-
         if (!only_parent) {
             cout << "Can not remove directory if not empty" << endl;
             return -1;
         }
     }
 
+    //Remove from fat.
     free_chain(to_remove.first_blk);
-    // int16_t curr = to_remove.first_blk;
-    // int16_t next;
-    // while(fat[curr]!=FAT_EOF){
-    //     next = fat[curr];
-    //     fat[curr] = FAT_FREE;
-    //     curr = next;
-    // }
-    // fat[curr] = FAT_FREE;
 
-    //Ta bort entry från entries.
+    //Remove entry from vector of entries
     entries.erase(entries.begin() + counter);
-    //spara dir och fat
+
+    //save dir and fat
     save_dir(parent_entry.first_blk, entries);
     save_fat();
     
@@ -905,7 +880,7 @@ FS::append(std::string filepath1, std::string filepath2)
     vector<dir_entry> entries2;
     load_dir(parent_entry2.first_blk, entries2);
 
-    //Hitta rätt entry
+    //Find corresponding dir_entry
     bool found;
     dir_entry* file_to_add_to;
     for(auto& entry: entries2){
@@ -933,7 +908,7 @@ FS::append(std::string filepath1, std::string filepath2)
         return -1;
     }
     
-    //Check access && att det är filer ej mappar
+    //Check access & type
     if(!(file_to_add.type == TYPE_FILE && file_to_add_to->type == TYPE_FILE)){
         cout << "Cant append directory" << endl;
         return -1;
@@ -947,21 +922,12 @@ FS::append(std::string filepath1, std::string filepath2)
         return -1;
     }
 
-    //Behövs detta?
-    // if (blk == FAT_EOF && remaining > 0) {
-        //     cout << "Corrupted file (no blocks)\n";
-        //     return -1;
-        // }
-        
     string to_add; //string to add to file 2, consists of content in last block + content of blocks in file 1
     int nr_of_whole_blocks_filled_by_file2 = floor(file_to_add_to->size/BLOCK_SIZE);
-    //cout << nr_of_whole_blocks_filled_by_file2 << endl;
     int chars_in_last_block_file_2 = file_to_add_to->size % BLOCK_SIZE;
-    //cout << chars_in_last_block_file_2 << endl;
     int chars_left_in_last_block_file_2 = BLOCK_SIZE - chars_in_last_block_file_2;
-    //cout << chars_left_in_last_block_file_2 << endl;
     
-    //adding content of last block of file 2 to string to_add
+    //Adding content of last block of file 2 to string to_add
     vector<int> allocated_blocks = {};
     int16_t blk = file_to_add_to->first_blk;
     int16_t last_blk = blk;
@@ -991,38 +957,30 @@ FS::append(std::string filepath1, std::string filepath2)
         remaining_chars -= to_print;
         if (remaining_chars > 0) blk = fat[blk];
     }
-        
-    //cout << to_add << endl; //working!
 
-    //Kontrollera att antalet block finns tillgängligt.
+    //Check enough nr of free blocks
     if(nr_of_whole_blocks_filled_by_file2 > find_nr_of_free_blocks()){
         cout << "Disk is full" << endl;
         return -1;
     }
 
     vector<uint16_t> chain_blocks_file2 = get_chain(file_to_add_to->first_blk);
-    //cout << "nr of blocks in chain for file2" << chain_blocks_file2.size() << endl;
-
     uint16_t last_blk_to_add_to = chain_blocks_file2.back();
 
-    int size = to_add.length(); // we check how many bytes needed for the file
-    //cout << "size " << size << endl;
-    div_t needed_blocks = div(size,BLOCK_SIZE); // here we check how many blocks we need
+    int size = to_add.length(); //check how many bytes needed for the file
+    div_t needed_blocks = div(size,BLOCK_SIZE); //check how many blocks are needed
     int whole_blocks_needed = needed_blocks.quot;
     if(needed_blocks.rem > 0){
         whole_blocks_needed++;
     }
-    //cout << whole_blocks_needed << endl; 
-
 
     int16_t curr = last_blk_to_add_to; //current last block which we want to overwrite.
     vector<int16_t> added_blocks = {}; //new blocks including last block of file2
     added_blocks.push_back(last_blk_to_add_to);
-    
 
-    for (size_t i = 0; i < whole_blocks_needed-1; i++){ //tar bort 1 pga första blocket redan allokerat
+    //Allocating new blocks
+    for (size_t i = 0; i < whole_blocks_needed-1; i++){ //needed blocks -1 bc first block already allocated
         try {
-            //cout << "alloc" << endl;
             int new_alloc_block = alloc_block();
             added_blocks.push_back(new_alloc_block);
         } catch (const std::runtime_error& e) {
@@ -1033,13 +991,10 @@ FS::append(std::string filepath1, std::string filepath2)
     }
     size_t pos = 0;
 
-    //Skriver till block.
+    //Writing to disk
     for (int i = 0; i < added_blocks.size(); i++) {
-        //cout << i << endl;
         uint8_t buffer[BLOCK_SIZE] = {0};
-
         size_t bytes = min((size_t)BLOCK_SIZE, to_add.size() - pos);
-        //cout << bytes << endl;
         memcpy(buffer, &to_add[pos], bytes);
         disk.write(curr, buffer);
         pos += bytes;
@@ -1053,10 +1008,10 @@ FS::append(std::string filepath1, std::string filepath2)
         }
     }
 
+    //Saving
     file_to_add_to->size = file_to_add_to->size + file_to_add.size;
     save_dir(parent_entry2.first_blk, entries2);
     save_fat();
-
     return 0;
 }
 
@@ -1066,6 +1021,7 @@ int
 FS::chmod(std::string accessrights, std::string filepath)
 {
     int accessrights_as_int;
+    //Check accessrights is correct format
     try{
         accessrights_as_int = stoi(accessrights);
     } catch(const std::invalid_argument &e) {
@@ -1081,6 +1037,7 @@ FS::chmod(std::string accessrights, std::string filepath)
     dir_entry parent_entry{};
     string file_name;
 
+    //Checking path
     if (!resolve_path(filepath, parent_entry, file_name)) {
         cout << "Error: File not found from path\n";
         return -1;
@@ -1104,12 +1061,12 @@ FS::chmod(std::string accessrights, std::string filepath)
     if (!found) { cout << "Error: File not found\n"; return -1; }
 
     save_dir(parent_entry.first_blk, dir);
-    //std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
     return 0;
 }
 
 
-
+// find_nr_of_free_blocks is used as a check before adding new files
+//  to know the number of free blocks at that time.
 int
 FS::find_nr_of_free_blocks() {
     int nr_of_free_blocks = 0;
@@ -1123,15 +1080,16 @@ FS::find_nr_of_free_blocks() {
 
 int FS::create(std::string filepath)
 {
-
     dir_entry parent_entry{};
     string filename;
 
+    //Retrieving information filepath
     if (!resolve_path(filepath, parent_entry, filename)) {
         cout << "Invalid path: cannot resolve parent directory\n";
         return -1;
     }
 
+    //Check rights
     if (parent_entry.first_blk != ROOT_BLOCK){
         if (!check_rights(parent_entry, WRITE)) {
             cout << "Insufficient access rights" << parent_entry.file_name << endl;
@@ -1139,15 +1097,15 @@ int FS::create(std::string filepath)
         }
     }
 
-    //Kontrollera om filename för långt. I så fall error!
+    //Check length filename
     if(filename.size() > 55){
         std::cout << "Error: Filename too long" << std::endl;
         return -1;
     }
 
-    //Kontrollera om filename finns. I så fall error!
     vector<dir_entry> entries;
 
+    //Loading directory of filepath. Checking lnr of direntries and file not already existing
     if(load_dir(parent_entry.first_blk, entries) != 0){
         cout << "Error: Could not load directory";
         return -1;
@@ -1165,7 +1123,7 @@ int FS::create(std::string filepath)
         }
     }
 
-    //Om alla kontroller ok; skriv data på kommande rader:
+    //Retrieving content text from terminal, saving it to string result
     std::string buf, result = {};
     while (getline(std::cin, buf)) //read std::cin into buf
     {
@@ -1174,12 +1132,11 @@ int FS::create(std::string filepath)
         result += buf + "\n";
     }
     int needed_blocks;
-    size_t size = result.length(); // we check how many bytes needed for the file
+    size_t size = result.length(); //check how many bytes needed for the file
     if(size == 0){
-        needed_blocks = 1;
+        needed_blocks = 1; //Always allocate 1 block
     } else {
-        //size_t needed_blocks = (size+1)/BLOCK_SIZE; // here we check how many blocks we need
-        div_t needed_blocks_div = div(size,BLOCK_SIZE); // here we check how many blocks we need
+        div_t needed_blocks_div = div(size,BLOCK_SIZE); //check how many blocks are needed
         needed_blocks = needed_blocks_div.quot;
         if(needed_blocks_div.rem > 0){
             needed_blocks++;
@@ -1187,7 +1144,7 @@ int FS::create(std::string filepath)
     }   
 
 
-    //Thanh: size_t needed_blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    //create new dir_entry
     dir_entry entry = {};
     strncpy(entry.file_name, filename.c_str(), sizeof(entry.file_name));
     entry.type = TYPE_FILE;
@@ -1197,10 +1154,12 @@ int FS::create(std::string filepath)
 
 
     vector<int> allocated_blocks = {};
+    //Check enough free blocks for writing file content to disk.
     if(needed_blocks > static_cast<size_t>(find_nr_of_free_blocks())){
         std::cout << "Error: Disk is full" << std::endl;
         return -1;
     }
+    //Allocate blocks
     for (size_t i = 0; i < needed_blocks; i++){
         try {
             int new_alloc_block = alloc_block();
@@ -1216,6 +1175,7 @@ int FS::create(std::string filepath)
     int16_t curr = allocated_blocks[0];
     size_t pos = 0;
 
+    //Write the content of string result to disk, one block at a time
     for (size_t i = 0; i < needed_blocks; i++) {
         uint8_t buffer[BLOCK_SIZE] = {0};
 
@@ -1232,10 +1192,9 @@ int FS::create(std::string filepath)
             fat[curr] = FAT_EOF;
         }
     }
+
+    //save updated directory and fat
     save_fat();
-
-
-
     entries.push_back(entry);
     save_dir(parent_entry.first_blk, entries);
     return 0;
@@ -1247,7 +1206,7 @@ FS::cat(std::string filepath) {
     dir_entry parent_entry{};
     string file_name;
 
-
+    //retrieving information filepath
     if (!resolve_path(filepath, parent_entry, file_name)) {
         cout << "Error: File not found from path\n";
         return -1;
@@ -1256,6 +1215,7 @@ FS::cat(std::string filepath) {
     uint16_t parent_block = parent_entry.first_blk;
     vector<dir_entry> dir;
 
+    //Loading directory of filepath
     if(load_dir(parent_block, dir) != 0){
         cout << "Error: Could not load directory";
         return -1;
@@ -1263,6 +1223,7 @@ FS::cat(std::string filepath) {
 
     dir_entry file = {};
     bool found = false;
+    //Finding corresponding dir_entry to filepath, checking if already existing and not a directory
     for (auto& e : dir) {
         if (file_name == e.file_name) {
             if(e.type == TYPE_DIR){
@@ -1275,7 +1236,7 @@ FS::cat(std::string filepath) {
         }
     }
 
-
+    //Checking rights and if not found, printing error messages
     if (!found) { cout << "Error: File not found\n"; return -1; }
 
     if (!check_rights(file, READ)) {
@@ -1289,6 +1250,7 @@ FS::cat(std::string filepath) {
         return -1;
     }
 
+    //Going through file blocks, reading from disk one block at a time, printing to terminal
     while (remaining > 0) {
         if (blk == FAT_EOF) {
             cout << "Corrupted file: unexpected end of FAT chain\n";
