@@ -41,9 +41,6 @@ private:
 public:
     FS();
     ~FS();
-
-
-   
     int find_free_block();                          
     int alloc_block();                              
     vector<uint16_t> get_chain(uint16_t first_blk); 

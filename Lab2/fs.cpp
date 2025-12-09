@@ -414,6 +414,10 @@ FS::cd(string name) {
                 cout << "Error: could not do cd on a file" << endl;
                 return -1;
             }
+            if (!check_rights(e, READ)) {
+                cout << "Error: permission denied to read current directory" << endl;
+                return -1;
+            }
             cwd_block = e.first_blk;
             cwd_path  = path;
             return 0;
